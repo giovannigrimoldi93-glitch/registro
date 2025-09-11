@@ -88,15 +88,24 @@
     </section>
   </main>
 
-  <!-- MODAL STUDENTE -->
-  <div id="studentModal" class="modal" style="display:none;">
-    <div class="modal-overlay" id="modalOverlay"></div>
-    <div class="modal-card" role="dialog" aria-modal="true">
-      <header class="modal-header">
-        <h2 id="studentName">Scheda studente</h2>
-        <button id="closeModalBtn" class="btn">Chiudi</button>
-      </header>
+ <!-- MODAL STUDENTE -->
+<div id="studentModal" class="modal" style="display:none;">
+  <div class="modal-overlay" id="modalOverlay"></div>
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <header class="modal-header">
+      <h2 id="studentName">Scheda studente</h2>
+      <button id="closeModalBtn" class="btn">Chiudi</button>
+    </header>
 
+    <!-- RIEPILOGO IN ALTO -->
+    <div id="studentSummary" class="student-summary">
+      <div>Totale voti: <span id="summaryGrades">0</span></div>
+      <div>Totale assenze: <span id="summaryAbsences">0</span></div>
+      <div>Annotazioni: <span id="summaryNotes">0</span></div>
+    </div>
+
+    <!-- FORMS + STORICO IN BASSO -->
+    <div class="student-details">
       <div class="student-forms">
         <form id="gradeForm" class="mini-form">
           <h3>Aggiungi voto</h3>
@@ -130,7 +139,9 @@
       </div>
     </div>
   </div>
+</div>
 
+  
   <!-- librerie -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
