@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registro Scuola</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <button id="homeBtn" class="btn">Home</button>
+    </div>
+    <h1>Registro Scuola — Licei</h1>
+    <div class="header-right">
+      <span id="userInfo" class="small-note"></span>
+      <button id="authBtn" class="btn">Accedi</button>
+      <button id="backBtn" class="btn">Indietro</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="screen">
+      <div class="controls">
+        <label class="file-label">Importa .xlsx:
+          <input id="xlsxInput" type="file" accept=".xls,.xlsx" />
+        </label>
+
+        <select id="sheetSelect" style="display:none;"></select>
+
+        <label id="colMapLabel" style="display:none;">
+          Mappa colonne:
+          <select id="colSurname"></select>
+          <select id="colName"></select>
+          <select id="colFull" style="display:none;"></select>
+        </label>
+
+        <label>
+          Classe di destinazione:
+          <select id="importClassSelect">
+            <option value="scientifico-1">Scientifico I</option>
+            <option value="scientifico-2">Scientifico II</option>
+            <option value="scientifico-3">Scientifico III</option>
+            <option value="scientifico-4">Scientifico IV</option>
+            <option value="scientifico-5">Scientifico V</option>
+            <option value="linguistico-1">Linguistico I</option>
+            <option value="linguistico-2">Linguistico II</option>
+            <option value="linguistico-3">Linguistico III</option>
+            <option value="linguistico-4">Linguistico IV</option>
+            <option value="linguistico-5">Linguistico V</option>
+          </select>
+        </label>
+
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="hasHeader" checked /> Prima riga è intestazione
+        </label>
+
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="tryDedupe" checked /> Tentativo dedupe (stesso nome)
+        </label>
+
+        <button id="previewBtn" class="btn" style="display:none;">Anteprima</button>
+        <button id="importBtn" class="btn" style="display:none;">Importa</button>
+      </div>
+
+      <div id="schoolsContainer" class="grid">
+        <!-- generato dinamicamente -->
+      </div>
+    </section>
+
+    <!-- CLASS VIEW -->
+    <section id="classView" class="screen" style="display:none;">
+      <h2 id="classTitle"></h2>
+      <div class="class-controls">
+        <button id="addStudentBtn" class="btn">Aggiungi alunno</button>
+      </div>
+      <table id="studentsTable" class="striped">
+        <thead>
+          <tr><th>Nome</th><th>Voti</th><th>Assenze</th><th>Azioni</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- STUDENT PANEL as REAL MODAL -->
+    <div id="studentModal" class="modal" style="display:none;">
+      <div class="modal-overlay" id="modalOverlay"></div>
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <h2 id="studentName"></h2>
+          <button id="closeModalBtn" class="btn">✕</button>
+        </header>
+
+        <div class="student-forms">
+          <form id="gradeForm" class="mini-form">
+            <h3>Aggiungi Voto</h3>
+            <label>Disciplina <input name="subject" required /></label>
+            <label>Voto <input name="value" type="number" min="0" max="10" step="0.25" required /></label>
+            <label>Data <input name="date" type="date" /></label>
+            <button type="submit" class="btn">Salva voto</button>
+          </form>
+
+          <form id="absenceForm" class="mini-form">
+            <h3>Aggiungi Assenza</h3>
+            <label>Data <input name="date" type="date" required /></label>
+            <label>Motivo <input name="reason" /></label>
+            <button type="submit" class="btn">Salva assenza</button>
+          </form>
+
+          <form id="noteForm" class="mini-form">
+            <h3>Aggiungi Annotazione</h3>
+            <label>Testo <textarea name="text" rows="3" required></textarea></label>
+            <button type="submit" class="btn">Salva annotazione</button>
+          </form>
+        </div>
+
+        <div class="student-history">
+          <h3>Storico voti</h3>
+          <ul id="gradesList"></ul>
+          <h3>Storico assenze</h3>
+          <ul id="absencesList"></ul>
+          <h3>Annotazioni</h3>
+          <ul id="notesList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- anteprima (light) -->
+    <section id="previewSection" style="display:none;">
+      <h3>Anteprima import (prime righe)</h3>
+      <pre id="previewContent" style="background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.05);"></pre>
+    </section>
+  </main>
+
+  <!-- librerie -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- app.js come module -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
