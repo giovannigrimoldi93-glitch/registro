@@ -1,37 +1,112 @@
-/* style.css - layout semplice e coerente */
-* { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-body { margin:0; background:#f5f7fb; color:#111; }
+/* style.css - Layout semplice e coerente */
+
+/* Reset base e font */
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+body {
+  margin: 0;
+  background: #f5f7fb;
+  color: #111;
+}
+
+/* Header */
 header {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:12px 16px; background:#0b5fff; color:#fff;
-  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #0b5fff;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
-.header-left { display:flex; gap:8px; align-items:center; }
-.header-right { display:flex; gap:8px; align-items:center; }
-h1 { margin:0; font-size:18px; text-align:center; flex:1; }
+.header-left, .header-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+h1 {
+  margin: 0;
+  font-size: 18px;
+  text-align: center;
+  flex: 1;
+}
 .btn {
-  background:#fff; color:#0b5fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer;font-weight:600;
+  background: #fff;
+  color: #0b5fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
 }
-.btn:hover { opacity:0.95; }
-.user-info { color:#fff; font-size:14px; margin-right:6px; }
+.btn:hover { opacity: 0.95; }
+.user-info {
+  color: #fff;
+  font-size: 14px;
+  margin-right: 6px;
+}
 
-/* main */
-#app { padding:18px; max-width:1100px; margin:20px auto; }
+/* Main container */
+#app {
+  padding: 18px;
+  max-width: 1100px;
+  margin: 20px auto;
+}
 
-/* dashboard grid */
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:12px; }
-.school-card { background:#fff; padding:14px; border-radius:10px; box-shadow:0 4px 14px rgba(2,6,23,0.06); }
-.school-card h3 { margin:0 0 8px 0; }
-.class-list { display:flex; gap:8px; flex-wrap:wrap; }
-.class-btn { padding:8px 10px; background:#0b5fff; color:#fff; border-radius:8px; border:none; cursor:pointer; }
+/* Dashboard - grid scuole e classi */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.school-card {
+  background: #fff;
+  padding: 14px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(2,6,23,0.06);
+}
+.school-card h3 { margin: 0 0 8px 0; }
+.class-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.class-btn {
+  padding: 8px 10px;
+  background: #0b5fff;
+  color: #fff;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
 
-/* class view */
-.class-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
-.striped { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.06); }
-.striped th, .striped td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
-.striped tbody tr:nth-child(even) { background:#fbfcff; }
+/* Visualizzazione classe */
+.class-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.striped {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.striped th, .striped td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+.striped tbody tr:nth-child(even) { background: #fbfcff; }
 
-/* Riepilogo in alto */
+/* Riepilogo studente */
 .student-summary {
   display: flex;
   justify-content: space-around;
@@ -48,17 +123,34 @@ h1 { margin:0; font-size:18px; text-align:center; flex:1; }
   gap: 16px;
   flex-wrap: wrap;
 }
-
-/* forms */
-.student-forms { display: flex; flex-direction: column; gap: 12px; width: 320px; }
-.student-history { flex: 1; min-width: 280px; background:#fff; padding:12px; border-radius:8px; box-shadow:0 1px 6px rgba(2,6,23,0.04); max-height:400px; overflow:auto; }
-
-/* responsiveness */
-@media (max-width: 720px){
-  .student-details { flex-direction: column; }
-  .student-forms, .student-history { width: 100%; }
+.student-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+}
+.student-history {
+  flex: 1;
+  min-width: 280px;
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(2,6,23,0.04);
+  max-height: 400px;
+  overflow: auto;
 }
 
+/* Responsività */
+@media (max-width: 720px) {
+  .student-details {
+    flex-direction: column;
+  }
+  .student-forms, .student-history {
+    width: 100%;
+  }
+}
+
+/* Modal - wrapper e centratura */
 .modal {
   position: fixed;
   inset: 0;
@@ -67,11 +159,17 @@ h1 { margin:0; font-size:18px; text-align:center; flex:1; }
   justify-content: center;  /* centra orizzontalmente */
   z-index: 1000;
 }
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+}
 
+/* Card interna del modal */
 .modal-card {
   position: relative;
   max-height: 90vh;        /* non oltre l'altezza viewport */
-  overflow-y: auto;        /* scroll interno se serve */
+  overflow-y: auto;        /* scroll interno se necessario */
   width: 90%;
   max-width: 800px;
   background: #f7fafc;
@@ -81,20 +179,13 @@ h1 { margin:0; font-size:18px; text-align:center; flex:1; }
   box-shadow: 0 10px 30px rgba(2,6,23,0.2);
 }
 
-/* opzionale: forza display flex interno */
+/* Forza layout interno del modal */
 .modal-card .student-details {
   display: flex;
   flex-direction: column;
 }
 
-/* Overlay */
-.modal-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-}
-
-/* Header e chiusura */
+/* Header del modal */
 .modal-header {
   display: flex;
   justify-content: space-between;
