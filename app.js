@@ -69,6 +69,7 @@ const notesList = document.getElementById('notesList');
 const gradeForm = document.getElementById('gradeForm');
 const absenceForm = document.getElementById('absenceForm');
 const noteForm = document.getElementById('noteForm');
+const studentsTableBody = document.querySelector("#studentsTable tbody");
 
 // ----------------- Stato -----------------
 let currentSchool = null;
