@@ -137,20 +137,21 @@ function openClass(school, classe) {
 }
 
 function renderStudentsTable(students) {
-  const studentsTableBody = document.querySelector("#studentsTable tbody"); // <--- selezione tbody
+  const studentsTableBody = document.querySelector("#studentsTable tbody"); // seleziona tbody
   studentsTableBody.innerHTML = '';
-  
+
+  // ordina alfabeticamente
   students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  
-  students.forEach((s, index) => {
+
+  students.forEach((s, index) => { // <--- ATTENZIONE: aggiunto index
     const tr = document.createElement('tr');
 
-    // Numero progressivo
+    // numero progressivo
     const tdIndex = document.createElement('td');
     tdIndex.textContent = index + 1;
     tr.appendChild(tdIndex);
 
-    // Nome studente
+    // nome studente
     const tdName = document.createElement('td');
     const nameBtn = document.createElement('button');
     nameBtn.className = 'btn';
@@ -160,17 +161,17 @@ function renderStudentsTable(students) {
     tdName.appendChild(nameBtn);
     tr.appendChild(tdName);
 
-    // Totale voti
+    // voti
     const tdGrades = document.createElement('td');
     tdGrades.innerHTML = `<div class="small-note">tot. voti: ${(s.grades || []).length}</div>`;
     tr.appendChild(tdGrades);
 
-    // Totale assenze
+    // assenze
     const tdAbs = document.createElement('td');
     tdAbs.innerHTML = `<div class="small-note">tot. assenze: ${(s.absences || []).length}</div>`;
     tr.appendChild(tdAbs);
 
-    // Azioni
+    // azioni
     const tdActions = document.createElement('td');
     const delBtn = document.createElement('button');
     delBtn.className = 'btn';
@@ -191,7 +192,6 @@ function renderStudentsTable(students) {
     studentsTableBody.appendChild(tr);
   });
 }
-
 
 // ----------------- Modal studente -----------------
 function showModal() { studentModal.style.display = ''; }
