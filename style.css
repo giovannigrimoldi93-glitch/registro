@@ -197,12 +197,6 @@ h1 {
   margin-top: 24px;
 }
 
-#orarioSettimanale h2 {
-  text-align: center;
-  margin-bottom: 12px;
-  font-size: 20px;
-}
-
 .timetable {
   width: 100%;
   border-collapse: collapse;
@@ -210,10 +204,11 @@ h1 {
   box-shadow: 0 1px 6px rgba(2,6,23,0.06);
   border-radius: 8px;
   overflow: hidden;
+  border: 2px solid #0b5fff; /* bordo esterno della tabella */
 }
 
 .timetable th, .timetable td {
-  border: 1px solid #ddd;
+  border: 1px solid #0b5fff; /* bordo interno delle celle */
   padding: 10px;
   text-align: center;
 }
