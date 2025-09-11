@@ -138,13 +138,16 @@ function openClass(school, classe) {
 function renderStudentsTable(students) {
   studentsTableBody.innerHTML = '';
   students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  students.forEach(s => {
+  
+  students.forEach((s, index) => { // <-- aggiunto "index"
     const tr = document.createElement('tr');
 
+    // numero progressivo
     const tdIndex = document.createElement('td');
-  tdIndex.textContent = index + 1;
-  
+    tdIndex.textContent = index + 1;
+    tr.appendChild(tdIndex);
 
+    // nome studente
     const tdName = document.createElement('td');
     const nameBtn = document.createElement('button');
     nameBtn.className = 'btn';
@@ -152,13 +155,19 @@ function renderStudentsTable(students) {
     nameBtn.textContent = s.name || '—';
     nameBtn.addEventListener('click', () => openStudentModal(s.id));
     tdName.appendChild(nameBtn);
+    tr.appendChild(tdName);
 
+    // voti
     const tdGrades = document.createElement('td');
     tdGrades.innerHTML = `<div class="small-note">tot. voti: ${(s.grades || []).length}</div>`;
+    tr.appendChild(tdGrades);
 
+    // assenze
     const tdAbs = document.createElement('td');
     tdAbs.innerHTML = `<div class="small-note">tot. assenze: ${(s.absences || []).length}</div>`;
+    tr.appendChild(tdAbs);
 
+    // azioni (elimina)
     const tdActions = document.createElement('td');
     const delBtn = document.createElement('button');
     delBtn.className = 'btn';
@@ -174,15 +183,12 @@ function renderStudentsTable(students) {
       }
     });
     tdActions.appendChild(delBtn);
-
-    tr.appendChild(tdIndex);
-    tr.appendChild(tdName);
-    tr.appendChild(tdGrades);
-    tr.appendChild(tdAbs);
     tr.appendChild(tdActions);
+
     studentsTableBody.appendChild(tr);
   });
 }
+
 
 // ----------------- Modal studente -----------------
 function showModal() { studentModal.style.display = ''; }
