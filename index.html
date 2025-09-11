@@ -28,25 +28,7 @@
     <section id="dashboard" class="screen">
       <h2>Seleziona un Liceo e una Classe</h2>
       <div id="schoolsContainer" class="grid"></div>
-    </section>
-
-    <!-- CLASS VIEW -->
-    <section id="classView" class="screen" style="display:none;">
-      <div class="class-header">
-        <h2 id="classTitle"></h2>
-        <div>
-          <button id="addStudentBtn" class="btn">Aggiungi alunno</button>
-        </div>
-      </div>
-      <table id="studentsTable" class="striped">
-        <thead>
-          <tr><th>Nome</th><th>Voti</th><th>Assenze</th><th>Azioni</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-    
-     <section id="orarioSettimanale">
+       <section id="orarioSettimanale">
   <h2>Orario Settimanale</h2>
   <table class="timetable">
     <thead>
@@ -119,7 +101,24 @@
     </tbody>
   </table>
 </section>
+    </section>
 
+    <!-- CLASS VIEW -->
+    <section id="classView" class="screen" style="display:none;">
+      <div class="class-header">
+        <h2 id="classTitle"></h2>
+        <div>
+          <button id="addStudentBtn" class="btn">Aggiungi alunno</button>
+        </div>
+      </div>
+      <table id="studentsTable" class="striped">
+        <thead>
+          <tr><th>Nome</th><th>Voti</th><th>Assenze</th><th>Azioni</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    
     <!-- IMPORT SECTION -->
     <section id="importSection" class="screen" style="display:none;">
       <h2>Importa studenti da file Excel</h2>
