@@ -58,7 +58,7 @@ h1 { margin:0; font-size:18px; text-align:center; flex:1; }
   .student-details { flex-direction: column; }
   .student-forms, .student-history { width: 100%; }
 }
-ù/* Modal wrapper */
+/* Modal wrapper */
 .modal {
   position: fixed;
   inset: 0; /* top:0; right:0; bottom:0; left:0 */
