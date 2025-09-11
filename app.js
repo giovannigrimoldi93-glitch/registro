@@ -141,6 +141,10 @@ function renderStudentsTable(students) {
   students.forEach(s => {
     const tr = document.createElement('tr');
 
+const tdIndex = document.createElement('td');
+    tdIndex.textContent = index + 1;   // numerazione da 1
+    tr.appendChild(tdIndex);
+    
     const tdName = document.createElement('td');
     const nameBtn = document.createElement('button');
     nameBtn.className = 'btn';
