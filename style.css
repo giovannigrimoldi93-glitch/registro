@@ -31,23 +31,30 @@ h1 { margin:0; font-size:18px; text-align:center; flex:1; }
 .striped th, .striped td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
 .striped tbody tr:nth-child(even) { background:#fbfcff; }
 
-/* modal */
-.modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1000; }
-.modal-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.45); }
-.modal-card { position:relative; width:92%; max-width:980px; background:#f7fafc; border-radius:10px; padding:16px; z-index:1001; box-shadow:0 10px 30px rgba(2,6,23,0.2); max-height:90vh; overflow:auto; }
-.modal-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px; }
+/* Riepilogo in alto */
+.student-summary {
+  display: flex;
+  justify-content: space-around;
+  background: #e3f2fd;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+/* Dettagli studente (forms + storico) */
+.student-details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 
 /* forms */
-.student-forms { display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
-.mini-form { background:#fff; padding:12px; border-radius:8px; box-shadow:0 1px 6px rgba(2,6,23,0.04); width:320px; }
-.mini-form label { display:block; margin-bottom:8px; }
-.mini-form input, .mini-form textarea, .mini-form select { width:100%; padding:8px; border-radius:6px; border:1px solid #ddd; }
-
-/* history */
-.student-history { background:#fff; padding:12px; border-radius:8px; box-shadow:0 1px 6px rgba(2,6,23,0.04); margin-top:8px; }
+.student-forms { display: flex; flex-direction: column; gap: 12px; width: 320px; }
+.student-history { flex: 1; min-width: 280px; background:#fff; padding:12px; border-radius:8px; box-shadow:0 1px 6px rgba(2,6,23,0.04); max-height:400px; overflow:auto; }
 
 /* responsiveness */
-@media (max-width:720px){
-  .student-forms { flex-direction:column; }
-  .mini-form { width:100%; }
+@media (max-width: 720px){
+  .student-details { flex-direction: column; }
+  .student-forms, .student-history { width: 100%; }
 }
