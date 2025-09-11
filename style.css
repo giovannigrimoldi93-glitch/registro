@@ -192,3 +192,37 @@ h1 {
   align-items: center;
   margin-bottom: 12px;
 }
+
+#orarioSettimanale {
+  margin-top: 24px;
+}
+
+#orarioSettimanale h2 {
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 20px;
+}
+
+.timetable {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(2,6,23,0.06);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.timetable th, .timetable td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+}
+
+.timetable th {
+  background: #0b5fff;
+  color: #fff;
+}
+
+.timetable tbody tr:nth-child(even) {
+  background: #f5f7fb;
+}
