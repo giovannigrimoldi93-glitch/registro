@@ -1,7 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Registro Scuola</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -11,90 +12,129 @@
       <button id="homeBtn" class="btn">Home</button>
       <button id="importBtnHeader" class="btn">Importa</button>
     </div>
+
     <h1>Registro Scuola — Licei</h1>
+
     <div class="header-right">
-      <button id="loginBtn" class="btn">Login Google</button>
-      <button id="logoutBtn" class="btn" style="display:none;">Logout</button>
+      <span id="userInfo" class="user-info"></span>
+      <button id="loginBtn" class="btn">Accedi (Google)</button>
+      <button id="logoutBtn" class="btn" style="display:none;">Esci</button>
       <button id="backBtn" class="btn">Indietro</button>
     </div>
   </header>
 
   <main id="app">
-    <!-- Dashboard -->
+    <!-- DASHBOARD -->
     <section id="dashboard" class="screen">
       <h2>Seleziona un Liceo e una Classe</h2>
-      <div class="school" id="scientifico">
-        <h3>Liceo Scientifico</h3>
-        <div class="classes"></div>
-      </div>
-      <div class="school" id="linguistico">
-        <h3>Liceo Linguistico</h3>
-        <div class="classes"></div>
-      </div>
+      <div id="schoolsContainer" class="grid"></div>
     </section>
 
-    <!-- Registro di una classe -->
+    <!-- CLASS VIEW -->
     <section id="classView" class="screen" style="display:none;">
-      <h2 id="classTitle">Classe</h2>
-      <table id="studentTable">
+      <div class="class-header">
+        <h2 id="classTitle"></h2>
+        <div>
+          <button id="addStudentBtn" class="btn">Aggiungi alunno</button>
+        </div>
+      </div>
+      <table id="studentsTable" class="striped">
         <thead>
-          <tr><th>Studente</th><th>Voti</th><th>Assenze</th></tr>
+          <tr><th>Nome</th><th>Voti</th><th>Assenze</th><th>Azioni</th></tr>
         </thead>
         <tbody></tbody>
       </table>
     </section>
 
-    <!-- Sezione Import -->
+    <!-- IMPORT SECTION -->
     <section id="importSection" class="screen" style="display:none;">
       <h2>Importa studenti da file Excel</h2>
       <div class="controls">
-        <label>
-          Scegli file .xlsx:
+        <label class="file-label">File .xlsx
           <input id="xlsxInput" type="file" accept=".xls,.xlsx" />
         </label>
+
         <select id="sheetSelect" style="display:none;"></select>
-        <select id="importClassSelect">
-          <option value="scientifico-1">Scientifico I</option>
-          <option value="scientifico-2">Scientifico II</option>
-          <option value="scientifico-3">Scientifico III</option>
-          <option value="scientifico-4">Scientifico IV</option>
-          <option value="scientifico-5">Scientifico V</option>
-          <option value="linguistico-1">Linguistico I</option>
-          <option value="linguistico-2">Linguistico II</option>
-          <option value="linguistico-3">Linguistico III</option>
-          <option value="linguistico-4">Linguistico IV</option>
-          <option value="linguistico-5">Linguistico V</option>
-        </select>
-        <button id="importBtn" class="btn" style="display:none;">Importa in classe</button>
+
+        <label>
+          Classe destinazione:
+          <select id="importClassSelect">
+            <option value="scientifico-1">Scientifico I</option>
+            <option value="scientifico-2">Scientifico II</option>
+            <option value="scientifico-3">Scientifico III</option>
+            <option value="scientifico-4">Scientifico IV</option>
+            <option value="scientifico-5">Scientifico V</option>
+            <option value="linguistico-1">Linguistico I</option>
+            <option value="linguistico-2">Linguistico II</option>
+            <option value="linguistico-3">Linguistico III</option>
+            <option value="linguistico-4">Linguistico IV</option>
+            <option value="linguistico-5">Linguistico V</option>
+          </select>
+        </label>
+
+        <label><input type="checkbox" id="hasHeader" checked /> Prima riga intestazione</label>
+        <label><input type="checkbox" id="tryDedupe" checked /> Prova deduplica (match esatto)</label>
+
+        <button id="previewBtn" class="btn" style="display:none;">Anteprima</button>
+        <button id="doImportBtn" class="btn" style="display:none;">Importa</button>
       </div>
-      <p class="small-note">
-        ⚠️ Verrà usata la prima colonna del foglio Excel come elenco degli studenti.
-      </p>
+
+      <div id="previewArea" style="display:none;">
+        <h3>Anteprima (prime righe)</h3>
+        <pre id="previewContent"></pre>
+      </div>
+
+      <p class="small-note">Suggerimento: salva il file come .xlsx e assicurati che i nomi siano nella prima colonna. Se hai intestazione, attiva "Prima riga intestazione".</p>
     </section>
   </main>
 
-  <!-- Modal scheda studente -->
+  <!-- MODAL STUDENTE -->
   <div id="studentModal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h3 id="studentName"></h3>
-      <form id="gradesForm">
-        <label>Voto: <input type="number" id="gradeInput" min="1" max="10" /></label>
-        <button type="submit">Aggiungi voto</button>
-      </form>
-      <form id="absencesForm">
-        <label>Assenze: <input type="number" id="absenceInput" min="0" /></label>
-        <button type="submit">Registra assenza</button>
-      </form>
-      <form id="notesForm">
-        <label>Nota: <textarea id="noteInput"></textarea></label>
-        <button type="submit">Aggiungi nota</button>
-      </form>
-      <div id="studentData"></div>
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <header class="modal-header">
+        <h2 id="studentName">Scheda studente</h2>
+        <button id="closeModalBtn" class="btn">Chiudi</button>
+      </header>
+
+      <div class="student-forms">
+        <form id="gradeForm" class="mini-form">
+          <h3>Aggiungi voto</h3>
+          <label>Materia <input name="subject" required /></label>
+          <label>Voto <input name="value" type="number" min="0" max="10" step="0.25" required /></label>
+          <label>Data <input name="date" type="date" /></label>
+          <button type="submit" class="btn">Salva voto</button>
+        </form>
+
+        <form id="absenceForm" class="mini-form">
+          <h3>Aggiungi assenza</h3>
+          <label>Data <input name="date" type="date" required /></label>
+          <label>Motivo <input name="reason" /></label>
+          <button type="submit" class="btn">Salva assenza</button>
+        </form>
+
+        <form id="noteForm" class="mini-form">
+          <h3>Aggiungi annotazione</h3>
+          <label>Testo <textarea name="text" rows="3" required></textarea></label>
+          <button type="submit" class="btn">Salva annotazione</button>
+        </form>
+      </div>
+
+      <div class="student-history">
+        <h3>Storico voti</h3>
+        <ul id="gradesList"></ul>
+        <h3>Storico assenze</h3>
+        <ul id="absencesList"></ul>
+        <h3>Annotazioni</h3>
+        <ul id="notesList"></ul>
+      </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <!-- librerie -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- il nostro script (module) -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
