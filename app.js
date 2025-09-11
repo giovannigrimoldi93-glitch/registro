@@ -141,10 +141,10 @@ function renderStudentsTable(students) {
   students.forEach(s => {
     const tr = document.createElement('tr');
 
-const tdIndex = document.createElement('td');
-    tdIndex.textContent = index + 1;   // numerazione da 1
-    tr.appendChild(tdIndex);
-    
+    const tdIndex = document.createElement('td');
+  tdIndex.textContent = index + 1;
+  
+
     const tdName = document.createElement('td');
     const nameBtn = document.createElement('button');
     nameBtn.className = 'btn';
@@ -175,6 +175,7 @@ const tdIndex = document.createElement('td');
     });
     tdActions.appendChild(delBtn);
 
+    tr.appendChild(tdIndex);
     tr.appendChild(tdName);
     tr.appendChild(tdGrades);
     tr.appendChild(tdAbs);
