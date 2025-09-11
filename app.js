@@ -212,17 +212,26 @@ function populateHistory(data) {
   absencesList.innerHTML = '';
   notesList.innerHTML = '';
 
-  (data.grades || []).slice().reverse().forEach(g => {
+  const grades = data.grades || [];
+  const absences = data.absences || [];
+  const notes = data.notes || [];
+
+  // aggiorna riepilogo
+  document.getElementById('summaryGrades').textContent = grades.length;
+  document.getElementById('summaryAbsences').textContent = absences.length;
+  document.getElementById('summaryNotes').textContent = notes.length;
+
+  grades.slice().reverse().forEach(g => {
     const li = document.createElement('li');
     li.textContent = `${g.date || ''} — ${g.subject || ''}: ${g.value}`;
     gradesList.appendChild(li);
   });
-  (data.absences || []).slice().reverse().forEach(a => {
+  absences.slice().reverse().forEach(a => {
     const li = document.createElement('li');
     li.textContent = `${a.date || ''} — ${a.reason || ''}`;
     absencesList.appendChild(li);
   });
-  (data.notes || []).slice().reverse().forEach(n => {
+  notes.slice().reverse().forEach(n => {
     const li = document.createElement('li');
     li.textContent = `${n.createdAt ? n.createdAt.slice(0,10) : ''} — ${n.text || ''}`;
     notesList.appendChild(li);
