@@ -58,3 +58,41 @@ h1 { margin:0; font-size:18px; text-align:center; flex:1; }
   .student-details { flex-direction: column; }
   .student-forms, .student-history { width: 100%; }
 }
+ù/* Modal wrapper */
+.modal {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Overlay */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+}
+
+/* Modal card centrata */
+.modal-card {
+  position: relative;
+  width: 90%;
+  max-width: 800px;
+  background: #f7fafc;
+  border-radius: 10px;
+  padding: 16px;
+  z-index: 1001;
+  max-height: 90vh;
+  overflow-y: auto; /* scroll se contenuto troppo alto */
+  box-shadow: 0 10px 30px rgba(2,6,23,0.2);
+}
+
+/* Header e chiusura */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
