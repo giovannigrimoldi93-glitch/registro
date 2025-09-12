@@ -289,6 +289,14 @@ editTimetableBtn.addEventListener('click', () => {
             emptyOption.textContent = '';
             select.appendChild(emptyOption);
 
+            
+            // Aggiungi l'opzione "Disponibile"
+            const availableOption = document.createElement('option');
+            availableOption.value = 'Disponibile';
+            availableOption.textContent = 'Disponibile';
+            select.appendChild(availableOption);
+
+
             allClasses.forEach(c => {
                 const option = document.createElement('option');
                 option.value = c.label;
