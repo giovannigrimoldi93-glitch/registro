@@ -69,6 +69,7 @@ const absenceForm = document.getElementById('absenceForm');
 const noteForm = document.getElementById('noteForm');
 
 // Riferimenti specifici per la tabella orario
+const showTimetableBtn = document.getElementById('showTimetableBtn');
 const timetableTable = document.getElementById('timetable');
 const editTimetableBtn = document.getElementById('editTimetableBtn');
 const saveTimetableBtn = document.getElementById('saveTimetableBtn');
@@ -190,17 +191,13 @@ function renderStudentsTable(students) {
 const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
 
 function openTimetable() {
-    dashboard.style.display = 'none';
     classView.style.display = 'none';
-    importSection.style.display = 'none';
     timetableSection.style.display = '';
-    hideModal();
-    // Carica e visualizza l'orario esistente (se c'è)
     loadTimetable();
 }
 
 async function loadTimetable() {
-    timetableTable.querySelector('tbody').innerHTML = ''; // Pulisce la tabella
+    timetableTable.querySelector('tbody').innerHTML = '';
     const timetableRef = collection(db, 'timetables');
     const q = query(timetableRef, where('school', '==', currentSchool), where('classe', '==', currentClasse));
     const snap = await getDocs(q);
@@ -217,23 +214,25 @@ async function loadTimetable() {
         tdHour.textContent = hour;
         tr.appendChild(tdHour);
 
-        dayMappings.forEach((day, dayIndex) => {
+        dayMappings.forEach((day) => {
             const td = document.createElement('td');
-            if (timetableData && timetableData[hourIndex] && timetableData[hourIndex][day]) {
-                td.textContent = timetableData[hourIndex][day] || '';
-            }
+            const lesson = timetableData?.find(item => item.hour === hour)?.[day] || '';
+            td.textContent = lesson;
             tr.appendChild(td);
         });
         timetableTable.querySelector('tbody').appendChild(tr);
     });
 }
 
+showTimetableBtn.addEventListener('click', () => {
+    openTimetable();
+});
+
 editTimetableBtn.addEventListener('click', () => {
     editTimetableBtn.style.display = 'none';
     saveTimetableBtn.style.display = '';
     const cells = timetableTable.querySelectorAll('tbody td');
     cells.forEach(cell => {
-        // Rende modificabili solo le celle dei giorni, non quelle dell'ora
         if (cell.cellIndex > 0) {
             cell.contentEditable = true;
             cell.classList.add('editable');
@@ -273,11 +272,9 @@ saveTimetableBtn.addEventListener('click', async () => {
         const snap = await getDocs(q);
         
         if (!snap.empty) {
-            // Aggiorna l'orario esistente
             const docRef = doc(db, 'timetables', snap.docs[0].id);
             await updateDoc(docRef, { data: timetableData });
         } else {
-            // Crea un nuovo orario
             await addDoc(timetableCol, {
                 school: currentSchool,
                 classe: currentClasse,
@@ -554,5 +551,3 @@ doImportBtn.addEventListener('click', async () => {
     previewBtn.style.display = 'none';
     doImportBtn.style.display = 'none';
 });
-
-// inizializzazione UI - la dashboard viene renderizzata al login
