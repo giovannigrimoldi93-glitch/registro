@@ -1,11 +1,11 @@
-// app.js (module) - Versione completa e coerente
+// app.js (module) - Versione pulita
 // Include: Gestione Studenti, Importazione XLSX, Autenticazione, e Gestione Orario Settimanale.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
 import {
     getFirestore, collection, query, where, onSnapshot,
-    addDoc, doc, updateDoc, deleteDoc, getDocs, arrayUnion
+    addDoc, doc, updateDoc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged
@@ -70,9 +70,7 @@ const noteForm = document.getElementById('noteForm');
 
 // Riferimenti specifici per la tabella orario
 const showTimetableBtn = document.getElementById('showTimetableBtn');
-const showClassBtn = document.getElementById('showClassBtn');
 const timetableTable = document.getElementById('timetable');
-const classSelect = document.getElementById('classSelect');
 const editTimetableBtn = document.getElementById('editTimetableBtn');
 const saveTimetableBtn = document.getElementById('saveTimetableBtn');
 
@@ -83,8 +81,7 @@ let currentClassQueryUnsub = null;
 let currentStudentDocUnsub = null;
 let currentStudentId = null;
 
-// Mappa delle classi per la creazione del menu a tendina
-const allClasses = [
+const classesForTimetable = [
     { school: 'scientifico', classe: 1, label: '1 Scientifico' },
     { school: 'scientifico', classe: 2, label: '2 Scientifico' },
     { school: 'scientifico', classe: 3, label: '3 Scientifico' },
@@ -104,8 +101,6 @@ function renderDashboard() {
     classView.style.display = 'none';
     importSection.style.display = 'none';
     timetableSection.style.display = 'none';
-    showTimetableBtn.style.display = '';
-    showClassBtn.style.display = 'none';
     hideModal();
 
     schoolsContainer.innerHTML = '';
@@ -143,7 +138,6 @@ function openClass(school, classe) {
     importSection.style.display = 'none';
     timetableSection.style.display = 'none';
     classView.style.display = '';
-    showClassBtn.style.display = 'none';
     classTitle.textContent = `${(school[0].toUpperCase() + school.slice(1))} — Classe ${classe}`;
 
     const studentsCol = collection(db, 'students');
@@ -216,36 +210,20 @@ function openTimetable() {
     classView.style.display = 'none';
     importSection.style.display = 'none';
     timetableSection.style.display = '';
-    populateClassSelect();
     loadTimetable();
 }
 
-function populateClassSelect() {
-    classSelect.innerHTML = '';
-    allClasses.forEach(c => {
-        const option = document.createElement('option');
-        option.value = `${c.school}-${c.classe}`;
-        option.textContent = c.label;
-        classSelect.appendChild(option);
-    });
-}
-
 async function loadTimetable() {
-    const selectedClassValue = classSelect.value.split('-');
-    const school = selectedClassValue[0];
-    const classe = Number(selectedClassValue[1]);
-
-    const timetableRef = collection(db, 'timetables');
-    const q = query(timetableRef, where('school', '==', school), where('classe', '==', classe));
-    const snap = await getDocs(q);
+    timetableTable.querySelector('tbody').innerHTML = '';
+    const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
+    const snap = await getDoc(timetableDocRef);
 
     let timetableData = null;
-    if (!snap.empty) {
-        timetableData = snap.docs[0].data().data;
+    if (snap.exists()) {
+        timetableData = snap.data().data;
     }
 
-    timetableTable.querySelector('tbody').innerHTML = '';
-    hours.forEach((hour, hourIndex) => {
+    hours.forEach((hour) => {
         const tr = document.createElement('tr');
         const tdHour = document.createElement('td');
         tdHour.textContent = hour;
@@ -261,51 +239,39 @@ async function loadTimetable() {
     });
 }
 
-classSelect.addEventListener('change', loadTimetable);
-
 showTimetableBtn.addEventListener('click', () => {
     openTimetable();
-});
-
-showClassBtn.addEventListener('click', () => {
-    openClass(currentSchool, currentClasse);
 });
 
 editTimetableBtn.addEventListener('click', () => {
     editTimetableBtn.style.display = 'none';
     saveTimetableBtn.style.display = '';
-    classSelect.disabled = true;
 
     const cells = timetableTable.querySelectorAll('tbody td');
     cells.forEach(cell => {
         if (cell.cellIndex > 0) {
-            cell.innerHTML = ''; // Svuota la cella per il dropdown
+            const currentContent = cell.textContent.trim();
+            cell.innerHTML = '';
             const select = document.createElement('select');
             select.className = 'timetable-select';
 
-            // Aggiungi un'opzione vuota per resettare
             const emptyOption = document.createElement('option');
             emptyOption.value = '';
             emptyOption.textContent = '';
             select.appendChild(emptyOption);
 
-            
-            // Aggiungi l'opzione "Disponibile"
             const availableOption = document.createElement('option');
             availableOption.value = 'Disponibile';
             availableOption.textContent = 'Disponibile';
             select.appendChild(availableOption);
 
-
-            allClasses.forEach(c => {
+            classesForTimetable.forEach(c => {
                 const option = document.createElement('option');
                 option.value = c.label;
                 option.textContent = c.label;
                 select.appendChild(option);
             });
             
-            // Imposta il valore corretto
-            const currentContent = cell.textContent.trim();
             if (currentContent) {
                 select.value = currentContent;
             }
@@ -317,7 +283,6 @@ editTimetableBtn.addEventListener('click', () => {
 saveTimetableBtn.addEventListener('click', async () => {
     saveTimetableBtn.style.display = 'none';
     editTimetableBtn.style.display = '';
-    classSelect.disabled = false;
 
     const rows = timetableTable.querySelectorAll('tbody tr');
     const timetableData = [];
@@ -327,8 +292,9 @@ saveTimetableBtn.addEventListener('click', async () => {
         const cells = row.querySelectorAll('td:not(:first-child)');
         cells.forEach((cell, index) => {
             const select = cell.querySelector('select');
-            rowData[dayMappings[index]] = select ? select.value : '';
-            cell.textContent = rowData[dayMappings[index]];
+            const lesson = select ? select.value : cell.textContent.trim();
+            rowData[dayMappings[index]] = lesson;
+            cell.textContent = lesson;
         });
         timetableData.push(rowData);
     });
@@ -338,27 +304,13 @@ saveTimetableBtn.addEventListener('click', async () => {
         return;
     }
 
-    const selectedClassValue = classSelect.value.split('-');
-    const school = selectedClassValue[0];
-    const classe = Number(selectedClassValue[1]);
-
     try {
-        const timetableCol = collection(db, 'timetables');
-        const q = query(timetableCol, where('school', '==', school), where('classe', '==', classe));
-        const snap = await getDocs(q);
-        
-        if (!snap.empty) {
-            const docRef = doc(db, 'timetables', snap.docs[0].id);
-            await updateDoc(docRef, { data: timetableData });
-        } else {
-            await addDoc(timetableCol, {
-                school,
-                classe,
-                data: timetableData,
-                lastUpdatedBy: auth.currentUser.uid,
-                lastUpdatedAt: new Date().toISOString()
-            });
-        }
+        const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
+        await setDoc(timetableDocRef, {
+            data: timetableData,
+            lastUpdatedBy: auth.currentUser.uid,
+            lastUpdatedAt: new Date().toISOString()
+        });
         alert('Orario salvato con successo!');
     } catch (e) {
         console.error("Errore salvataggio orario:", e);
