@@ -70,7 +70,9 @@ const noteForm = document.getElementById('noteForm');
 
 // Riferimenti specifici per la tabella orario
 const showTimetableBtn = document.getElementById('showTimetableBtn');
+const showClassBtn = document.getElementById('showClassBtn');
 const timetableTable = document.getElementById('timetable');
+const classSelect = document.getElementById('classSelect');
 const editTimetableBtn = document.getElementById('editTimetableBtn');
 const saveTimetableBtn = document.getElementById('saveTimetableBtn');
 
@@ -81,12 +83,29 @@ let currentClassQueryUnsub = null;
 let currentStudentDocUnsub = null;
 let currentStudentId = null;
 
+// Mappa delle classi per la creazione del menu a tendina
+const allClasses = [
+    { school: 'scientifico', classe: 1, label: '1 Scientifico' },
+    { school: 'scientifico', classe: 2, label: '2 Scientifico' },
+    { school: 'scientifico', classe: 3, label: '3 Scientifico' },
+    { school: 'scientifico', classe: 4, label: '4 Scientifico' },
+    { school: 'scientifico', classe: 5, label: '5 Scientifico' },
+    { school: 'linguistico', classe: 1, label: '1 Linguistico' },
+    { school: 'linguistico', classe: 2, label: '2 Linguistico' },
+    { school: 'linguistico', classe: 3, label: '3 Linguistico' },
+    { school: 'linguistico', classe: 4, label: '4 Linguistico' },
+    { school: 'linguistico', classe: 5, label: '5 Linguistico' },
+    { school: 'comune', classe: 4, label: '4 (Comune)' } // per gestione 4L e 4S
+];
+
 // ----------------- Funzioni UI -----------------
 function renderDashboard() {
     dashboard.style.display = '';
     classView.style.display = 'none';
     importSection.style.display = 'none';
     timetableSection.style.display = 'none';
+    showTimetableBtn.style.display = '';
+    showClassBtn.style.display = 'none';
     hideModal();
 
     schoolsContainer.innerHTML = '';
@@ -124,6 +143,7 @@ function openClass(school, classe) {
     importSection.style.display = 'none';
     timetableSection.style.display = 'none';
     classView.style.display = '';
+    showClassBtn.style.display = 'none';
     classTitle.textContent = `${(school[0].toUpperCase() + school.slice(1))} — Classe ${classe}`;
 
     const studentsCol = collection(db, 'students');
@@ -189,17 +209,34 @@ function renderStudentsTable(students) {
 
 // ----------------- Funzioni per la tabella orario -----------------
 const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
+const hours = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 function openTimetable() {
+    dashboard.style.display = 'none';
     classView.style.display = 'none';
+    importSection.style.display = 'none';
     timetableSection.style.display = '';
+    populateClassSelect();
     loadTimetable();
 }
 
+function populateClassSelect() {
+    classSelect.innerHTML = '';
+    allClasses.forEach(c => {
+        const option = document.createElement('option');
+        option.value = `${c.school}-${c.classe}`;
+        option.textContent = c.label;
+        classSelect.appendChild(option);
+    });
+}
+
 async function loadTimetable() {
-    timetableTable.querySelector('tbody').innerHTML = '';
+    const selectedClassValue = classSelect.value.split('-');
+    const school = selectedClassValue[0];
+    const classe = Number(selectedClassValue[1]);
+
     const timetableRef = collection(db, 'timetables');
-    const q = query(timetableRef, where('school', '==', currentSchool), where('classe', '==', currentClasse));
+    const q = query(timetableRef, where('school', '==', school), where('classe', '==', classe));
     const snap = await getDocs(q);
 
     let timetableData = null;
@@ -207,7 +244,7 @@ async function loadTimetable() {
         timetableData = snap.docs[0].data().data;
     }
 
-    const hours = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    timetableTable.querySelector('tbody').innerHTML = '';
     hours.forEach((hour, hourIndex) => {
         const tr = document.createElement('tr');
         const tdHour = document.createElement('td');
@@ -224,18 +261,47 @@ async function loadTimetable() {
     });
 }
 
+classSelect.addEventListener('change', loadTimetable);
+
 showTimetableBtn.addEventListener('click', () => {
     openTimetable();
+});
+
+showClassBtn.addEventListener('click', () => {
+    openClass(currentSchool, currentClasse);
 });
 
 editTimetableBtn.addEventListener('click', () => {
     editTimetableBtn.style.display = 'none';
     saveTimetableBtn.style.display = '';
+    classSelect.disabled = true;
+
     const cells = timetableTable.querySelectorAll('tbody td');
     cells.forEach(cell => {
         if (cell.cellIndex > 0) {
-            cell.contentEditable = true;
-            cell.classList.add('editable');
+            cell.innerHTML = ''; // Svuota la cella per il dropdown
+            const select = document.createElement('select');
+            select.className = 'timetable-select';
+
+            // Aggiungi un'opzione vuota per resettare
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = '';
+            select.appendChild(emptyOption);
+
+            allClasses.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.label;
+                option.textContent = c.label;
+                select.appendChild(option);
+            });
+            
+            // Imposta il valore corretto
+            const currentContent = cell.textContent.trim();
+            if (currentContent) {
+                select.value = currentContent;
+            }
+            cell.appendChild(select);
         }
     });
 });
@@ -243,11 +309,7 @@ editTimetableBtn.addEventListener('click', () => {
 saveTimetableBtn.addEventListener('click', async () => {
     saveTimetableBtn.style.display = 'none';
     editTimetableBtn.style.display = '';
-    const cells = timetableTable.querySelectorAll('tbody td');
-    cells.forEach(cell => {
-        cell.contentEditable = false;
-        cell.classList.remove('editable');
-    });
+    classSelect.disabled = false;
 
     const rows = timetableTable.querySelectorAll('tbody tr');
     const timetableData = [];
@@ -256,7 +318,9 @@ saveTimetableBtn.addEventListener('click', async () => {
         const rowData = { hour };
         const cells = row.querySelectorAll('td:not(:first-child)');
         cells.forEach((cell, index) => {
-            rowData[dayMappings[index]] = cell.textContent.trim();
+            const select = cell.querySelector('select');
+            rowData[dayMappings[index]] = select ? select.value : '';
+            cell.textContent = rowData[dayMappings[index]];
         });
         timetableData.push(rowData);
     });
@@ -266,9 +330,13 @@ saveTimetableBtn.addEventListener('click', async () => {
         return;
     }
 
+    const selectedClassValue = classSelect.value.split('-');
+    const school = selectedClassValue[0];
+    const classe = Number(selectedClassValue[1]);
+
     try {
         const timetableCol = collection(db, 'timetables');
-        const q = query(timetableCol, where('school', '==', currentSchool), where('classe', '==', currentClasse));
+        const q = query(timetableCol, where('school', '==', school), where('classe', '==', classe));
         const snap = await getDocs(q);
         
         if (!snap.empty) {
@@ -276,8 +344,8 @@ saveTimetableBtn.addEventListener('click', async () => {
             await updateDoc(docRef, { data: timetableData });
         } else {
             await addDoc(timetableCol, {
-                school: currentSchool,
-                classe: currentClasse,
+                school,
+                classe,
                 data: timetableData,
                 lastUpdatedBy: auth.currentUser.uid,
                 lastUpdatedAt: new Date().toISOString()
