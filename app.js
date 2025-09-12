@@ -1,13 +1,11 @@
-// app.js (module) - versione corretta e coerente
-// Usa: Firestore top-level collection "students" con campi:
-// name, school ("scientifico"|"linguistico"), classe (1..5),
-// grades: array, absences: array, notes: array
+// app.js (module) - Versione completa e coerente
+// Include: Gestione Studenti, Importazione XLSX, Autenticazione, e Gestione Orario Settimanale.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
 import {
     getFirestore, collection, query, where, onSnapshot,
-    addDoc, doc, updateDoc, deleteDoc, getDocs, getDoc, arrayUnion
+    addDoc, doc, updateDoc, deleteDoc, getDocs, arrayUnion
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged
@@ -35,6 +33,7 @@ const schoolsContainer = document.getElementById('schoolsContainer');
 const dashboard = document.getElementById('dashboard');
 const classView = document.getElementById('classView');
 const importSection = document.getElementById('importSection');
+const timetableSection = document.getElementById('timetableSection');
 
 const homeBtn = document.getElementById('homeBtn');
 const importBtnHeader = document.getElementById('importBtnHeader');
@@ -44,9 +43,9 @@ const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userInfo = document.getElementById('userInfo');
 
-const studentsTableBody = document.querySelector("#studentsTable tbody"); // Correzione: rimosso duplicato
+const studentsTableBody = document.querySelector("#studentsTable tbody");
 const classTitle = document.getElementById('classTitle');
-const addStudentBtn = document.getElementById('addStudentBtn'); // Correzione: Aggiunta la dichiarazione
+const addStudentBtn = document.getElementById('addStudentBtn');
 
 const xlsxInput = document.getElementById('xlsxInput');
 const sheetSelect = document.getElementById('sheetSelect');
@@ -65,10 +64,14 @@ const studentNameEl = document.getElementById('studentName');
 const gradesList = document.getElementById('gradesList');
 const absencesList = document.getElementById('absencesList');
 const notesList = document.getElementById('notesList');
-
 const gradeForm = document.getElementById('gradeForm');
 const absenceForm = document.getElementById('absenceForm');
 const noteForm = document.getElementById('noteForm');
+
+// Riferimenti specifici per la tabella orario
+const timetableTable = document.getElementById('timetable');
+const editTimetableBtn = document.getElementById('editTimetableBtn');
+const saveTimetableBtn = document.getElementById('saveTimetableBtn');
 
 // ----------------- Stato -----------------
 let currentSchool = null;
@@ -82,6 +85,7 @@ function renderDashboard() {
     dashboard.style.display = '';
     classView.style.display = 'none';
     importSection.style.display = 'none';
+    timetableSection.style.display = 'none';
     hideModal();
 
     schoolsContainer.innerHTML = '';
@@ -111,24 +115,23 @@ function renderDashboard() {
 }
 
 function openClass(school, classe) {
-    // annulla listener precedente
     if (currentClassQueryUnsub) currentClassQueryUnsub();
 
     currentSchool = school;
     currentClasse = classe;
     dashboard.style.display = 'none';
     importSection.style.display = 'none';
+    timetableSection.style.display = 'none';
     classView.style.display = '';
     classTitle.textContent = `${(school[0].toUpperCase() + school.slice(1))} — Classe ${classe}`;
 
-    // query realtime
     const studentsCol = collection(db, 'students');
     const q = query(studentsCol, where('school', '==', school), where('classe', '==', classe));
     currentClassQueryUnsub = onSnapshot(q, snap => {
         const docs = [];
         snap.forEach(d => {
             const data = d.data();
-            if (data.deleted) return; // ignore soft-deleted
+            if (data.deleted) return;
             docs.push({ id: d.id, ...data });
         });
         renderStudentsTable(docs);
@@ -137,19 +140,14 @@ function openClass(school, classe) {
 
 function renderStudentsTable(students) {
     studentsTableBody.innerHTML = '';
-
-    // ordina alfabeticamente
     students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-    students.forEach((s, index) => { // <--- ATTENZIONE: aggiunto index
+    students.forEach((s, index) => {
         const tr = document.createElement('tr');
-
-        // numero progressivo
         const tdIndex = document.createElement('td');
         tdIndex.textContent = index + 1;
         tr.appendChild(tdIndex);
 
-        // nome studente
         const tdName = document.createElement('td');
         const nameBtn = document.createElement('button');
         nameBtn.className = 'btn';
@@ -159,17 +157,14 @@ function renderStudentsTable(students) {
         tdName.appendChild(nameBtn);
         tr.appendChild(tdName);
 
-        // voti
         const tdGrades = document.createElement('td');
         tdGrades.innerHTML = `<div class="small-note">tot. voti: ${(s.grades || []).length}</div>`;
         tr.appendChild(tdGrades);
 
-        // assenze
         const tdAbs = document.createElement('td');
         tdAbs.innerHTML = `<div class="small-note">tot. assenze: ${(s.absences || []).length}</div>`;
         tr.appendChild(tdAbs);
 
-        // azioni
         const tdActions = document.createElement('td');
         const delBtn = document.createElement('button');
         delBtn.className = 'btn';
@@ -191,6 +186,113 @@ function renderStudentsTable(students) {
     });
 }
 
+// ----------------- Funzioni per la tabella orario -----------------
+const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
+
+function openTimetable() {
+    dashboard.style.display = 'none';
+    classView.style.display = 'none';
+    importSection.style.display = 'none';
+    timetableSection.style.display = '';
+    hideModal();
+    // Carica e visualizza l'orario esistente (se c'è)
+    loadTimetable();
+}
+
+async function loadTimetable() {
+    timetableTable.querySelector('tbody').innerHTML = ''; // Pulisce la tabella
+    const timetableRef = collection(db, 'timetables');
+    const q = query(timetableRef, where('school', '==', currentSchool), where('classe', '==', currentClasse));
+    const snap = await getDocs(q);
+
+    let timetableData = null;
+    if (!snap.empty) {
+        timetableData = snap.docs[0].data().data;
+    }
+
+    const hours = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    hours.forEach((hour, hourIndex) => {
+        const tr = document.createElement('tr');
+        const tdHour = document.createElement('td');
+        tdHour.textContent = hour;
+        tr.appendChild(tdHour);
+
+        dayMappings.forEach((day, dayIndex) => {
+            const td = document.createElement('td');
+            if (timetableData && timetableData[hourIndex] && timetableData[hourIndex][day]) {
+                td.textContent = timetableData[hourIndex][day] || '';
+            }
+            tr.appendChild(td);
+        });
+        timetableTable.querySelector('tbody').appendChild(tr);
+    });
+}
+
+editTimetableBtn.addEventListener('click', () => {
+    editTimetableBtn.style.display = 'none';
+    saveTimetableBtn.style.display = '';
+    const cells = timetableTable.querySelectorAll('tbody td');
+    cells.forEach(cell => {
+        // Rende modificabili solo le celle dei giorni, non quelle dell'ora
+        if (cell.cellIndex > 0) {
+            cell.contentEditable = true;
+            cell.classList.add('editable');
+        }
+    });
+});
+
+saveTimetableBtn.addEventListener('click', async () => {
+    saveTimetableBtn.style.display = 'none';
+    editTimetableBtn.style.display = '';
+    const cells = timetableTable.querySelectorAll('tbody td');
+    cells.forEach(cell => {
+        cell.contentEditable = false;
+        cell.classList.remove('editable');
+    });
+
+    const rows = timetableTable.querySelectorAll('tbody tr');
+    const timetableData = [];
+    rows.forEach(row => {
+        const hour = row.querySelector('td:first-child').textContent;
+        const rowData = { hour };
+        const cells = row.querySelectorAll('td:not(:first-child)');
+        cells.forEach((cell, index) => {
+            rowData[dayMappings[index]] = cell.textContent.trim();
+        });
+        timetableData.push(rowData);
+    });
+
+    if (!auth.currentUser) {
+        alert('Devi essere autenticato per salvare l\'orario.');
+        return;
+    }
+
+    try {
+        const timetableCol = collection(db, 'timetables');
+        const q = query(timetableCol, where('school', '==', currentSchool), where('classe', '==', currentClasse));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+            // Aggiorna l'orario esistente
+            const docRef = doc(db, 'timetables', snap.docs[0].id);
+            await updateDoc(docRef, { data: timetableData });
+        } else {
+            // Crea un nuovo orario
+            await addDoc(timetableCol, {
+                school: currentSchool,
+                classe: currentClasse,
+                data: timetableData,
+                lastUpdatedBy: auth.currentUser.uid,
+                lastUpdatedAt: new Date().toISOString()
+            });
+        }
+        alert('Orario salvato con successo!');
+    } catch (e) {
+        console.error("Errore salvataggio orario:", e);
+        alert('Si è verificato un errore durante il salvataggio.');
+    }
+});
+
 // ----------------- Modal studente -----------------
 function showModal() { studentModal.style.display = ''; }
 function hideModal() {
@@ -209,7 +311,6 @@ async function openStudentModal(studentId) {
     showModal();
 
     const docRef = doc(db, 'students', studentId);
-    // realtime doc
     if (currentStudentDocUnsub) currentStudentDocUnsub();
     currentStudentDocUnsub = onSnapshot(docRef, snap => {
         if (!snap.exists()) return;
@@ -228,7 +329,6 @@ function populateHistory(data) {
     const absences = data.absences || [];
     const notes = data.notes || [];
 
-    // aggiorna riepilogo
     document.getElementById('summaryGrades').textContent = grades.length;
     document.getElementById('summaryAbsences').textContent = absences.length;
     document.getElementById('summaryNotes').textContent = notes.length;
@@ -245,12 +345,11 @@ function populateHistory(data) {
     });
     notes.slice().reverse().forEach(n => {
         const li = document.createElement('li');
-        li.textContent = `${n.createdAt ? n.createdAt.slice(0,10) : ''} — ${n.text || ''}`;
+        li.textContent = `${n.createdAt ? n.createdAt.slice(0, 10) : ''} — ${n.text || ''}`;
         notesList.appendChild(li);
     });
 }
 
-// Modal close
 modalOverlay.addEventListener('click', hideModal);
 closeModalBtn.addEventListener('click', hideModal);
 
@@ -320,10 +419,10 @@ onAuthStateChanged(auth, (user) => {
         userInfo.textContent = '';
         loginBtn.style.display = '';
         logoutBtn.style.display = 'none';
-        // nascondi aree sensibili se non loggato
         dashboard.style.display = 'none';
         classView.style.display = 'none';
         importSection.style.display = 'none';
+        timetableSection.style.display = 'none';
     }
 });
 
@@ -335,11 +434,11 @@ homeBtn.addEventListener('click', () => {
 importBtnHeader.addEventListener('click', () => {
     dashboard.style.display = 'none';
     classView.style.display = 'none';
+    timetableSection.style.display = 'none';
     importSection.style.display = '';
     hideModal();
 });
 backBtn.addEventListener('click', () => {
-    // comportamento semplice: torna alla dashboard
     if (currentClassQueryUnsub) { currentClassQueryUnsub(); currentClassQueryUnsub = null; }
     renderDashboard();
 });
@@ -422,7 +521,6 @@ doImportBtn.addEventListener('click', async () => {
         const name = (r && r[0]) ? String(r[0]).trim() : null;
         if (!name) continue;
 
-        // dedupe opzionale (match esatto)
         let exists = false;
         if (tryDedupe) {
             const q = query(collection(db, 'students'), where('school', '==', school), where('classe', '==', classe), where('name', '==', name));
@@ -450,7 +548,6 @@ doImportBtn.addEventListener('click', async () => {
     }
 
     alert(`Import completato. Aggiunti: ${toAdd.length}. Saltati: ${skipped.length}.`);
-    // pulizia UI
     xlsxInput.value = '';
     sheetSelect.style.display = 'none';
     previewArea.style.display = 'none';
@@ -458,7 +555,4 @@ doImportBtn.addEventListener('click', async () => {
     doImportBtn.style.display = 'none';
 });
 
-// ----------------- inizializzazione UI -----------------
-// Eliminata la chiamata iniziale per evitare la doppia esecuzione.
-// La dashboard viene renderizzata al login.
-// renderDashboard();
+// inizializzazione UI - la dashboard viene renderizzata al login
