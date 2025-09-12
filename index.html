@@ -27,13 +27,16 @@
         <section id="dashboard" class="screen">
             <h2>Seleziona un Liceo e una Classe</h2>
             <div id="schoolsContainer" class="grid"></div>
+            <div class="timetable-control">
+                <button id="showTimetableBtn" class="btn">Orario Settimanale</button>
+                <button id="showClassBtn" class="btn" style="display:none;">Vai alla Classe</button>
+            </div>
         </section>
 
         <section id="classView" class="screen" style="display:none;">
             <div class="class-header">
                 <h2 id="classTitle"></h2>
                 <div>
-                    <button id="showTimetableBtn" class="btn">Orario Settimanale</button>
                     <button id="addStudentBtn" class="btn">Aggiungi alunno</button>
                 </div>
             </div>
@@ -49,6 +52,7 @@
             <div class="class-header">
                 <h2>Orario settimanale</h2>
                 <div>
+                    <select id="classSelect"></select>
                     <button id="editTimetableBtn" class="btn">Modifica</button>
                     <button id="saveTimetableBtn" class="btn" style="display:none;">Salva</button>
                 </div>
@@ -65,8 +69,7 @@
                         <th>Venerdì</th>
                     </tr>
                 </thead>
-                <tbody>
-                    </tbody>
+                <tbody></tbody>
             </table>
         </section>
 
