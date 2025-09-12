@@ -28,9 +28,17 @@
     <section id="dashboard" class="screen">
       <h2>Seleziona un Liceo e una Classe</h2>
       <div id="schoolsContainer" class="grid"></div>
-       <section id="orarioSettimanale">
-  <h2>Orario Settimanale</h2>
-  <table class="timetable">
+       <!-- TIMETABLE SECTION -->
+<section id="timetableSection" style="margin-top:20px;">
+  <div class="class-header">
+    <h2>Orario settimanale</h2>
+    <div>
+      <button id="editTimetableBtn" class="btn">Modifica</button>
+      <button id="saveTimetableBtn" class="btn" style="display:none;">Salva</button>
+    </div>
+  </div>
+
+  <table id="timetable" class="striped">
     <thead>
       <tr>
         <th>Ora</th>
@@ -42,62 +50,13 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <th>I</th>
-        <td></td>
-        <td></td>
-        <td>2S</td>
-        <td>Disponibile</td>
-        <td></td>
-      </tr>
-      <tr>
-        <th>II</th>
-        <td></td>
-        <td></td>
-        <td>1S</td>
-        <td>3S</td>
-        <td></td>
-      </tr>
-      <tr>
-        <th>III</th>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-      <tr>
-        <th>IV</th>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>3L</td>
-      </tr>
-      <tr>
-        <th>V</th>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>2L</td>
-        <td>1L</td>
-      </tr>
-      <tr>
-        <th>VI</th>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>5L</td>
-        <td>5S</td>
-      </tr>
-      <tr>
-        <th>VII</th>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>4LS</td>
-        <td></td>
-      </tr>
+      <tr><td>I</td><td></td><td></td><td>2S</td><td>Disponibile</td><td></td></tr>
+      <tr><td>II</td><td></td><td></td><td>1S</td><td>3S</td><td></td></tr>
+      <tr><td>III</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>IV</td><td></td><td></td><td></td><td></td><td>3L</td></tr>
+      <tr><td>V</td><td></td><td></td><td></td><td>2L</td><td>1L</td></tr>
+      <tr><td>VI</td><td></td><td></td><td></td><td>5L</td><td>5S</td></tr>
+      <tr><td>VII</td><td></td><td></td><td>4LS</td><td></td><td></td></tr>
     </tbody>
   </table>
 </section>
