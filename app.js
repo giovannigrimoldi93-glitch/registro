@@ -1,33 +1,52 @@
-// app.js (modulo) - Versione completa con appunti di classe
-// Integrato con Supabase anziché Firebase
+// app.js (module) - Versione pulita
+// Include: Gestione Studenti, Importazione XLSX, Autenticazione, e Gestione Orario Settimanale.
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
+import {
+    getFirestore, collection, query, where, onSnapshot,
+    addDoc, doc, updateDoc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+import {
+    getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
-// ================= CONFIG SUPABASE (sostituisci con le tue chiavi) =================
-const supabaseUrl = 'https://yctzagencamqoaipbjma.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljdHphZ2VuY2FtcW9haXBiam1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMTcyNzgsImV4cCI6MjA3MzU5MzI3OH0.2_IlqF854MqXTTRcM7hvUMkoIscqPQj4DGzxugdqMDw';
+// ----------------- CONFIG FIREBASE (sostituisci se diverso) -----------------
+const firebaseConfig = {
+    apiKey: "AIzaSyDAP5DTAg7TX9SKdIMLFFngo_csolzkswo",
+    authDomain: "registro-d308f.firebaseapp.com",
+    projectId: "registro-d308f",
+    storageBucket: "registro-d308f.firebasestorage.app",
+    messagingSenderId: "878790384139",
+    appId: "1:878790384139:web:5c21fc809d6a109ac6450e",
+    measurementId: "G-21K3RD2Y93"
+};
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics ? getAnalytics(app) : null;
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
-// NOTA: Ho mantenuto la libreria di analytics di Firebase in quanto non ha dipendenze dirette con Firestore o Auth.
-
-// ================= Riferimenti UI (rimangono uguali) =================
+// ----------------- Riferimenti UI -----------------
 const schoolsContainer = document.getElementById('schoolsContainer');
 const dashboard = document.getElementById('dashboard');
 const classView = document.getElementById('classView');
 const importSection = document.getElementById('importSection');
 const timetableSection = document.getElementById('timetableSection');
+
 const homeBtn = document.getElementById('homeBtn');
 const importBtnHeader = document.getElementById('importBtnHeader');
 const backBtn = document.getElementById('backBtn');
+
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userInfo = document.getElementById('userInfo');
+
 const studentsTableBody = document.querySelector("#studentsTable tbody");
 const classTitle = document.getElementById('classTitle');
 const addStudentBtn = document.getElementById('addStudentBtn');
-const studentSearchInput = document.getElementById('studentSearch');
+
 const xlsxInput = document.getElementById('xlsxInput');
 const sheetSelect = document.getElementById('sheetSelect');
 const previewBtn = document.getElementById('previewBtn');
@@ -37,6 +56,7 @@ const hasHeaderCheckbox = document.getElementById('hasHeader');
 const tryDedupeCheckbox = document.getElementById('tryDedupe');
 const previewArea = document.getElementById('previewArea');
 const previewContent = document.getElementById('previewContent');
+
 const studentModal = document.getElementById('studentModal');
 const modalOverlay = document.getElementById('modalOverlay');
 const closeModalBtn = document.getElementById('closeModalBtn');
@@ -47,20 +67,19 @@ const notesList = document.getElementById('notesList');
 const gradeForm = document.getElementById('gradeForm');
 const absenceForm = document.getElementById('absenceForm');
 const noteForm = document.getElementById('noteForm');
+
+// Riferimenti specifici per la tabella orario
 const showTimetableBtn = document.getElementById('showTimetableBtn');
 const timetableTable = document.getElementById('timetable');
 const editTimetableBtn = document.getElementById('editTimetableBtn');
 const saveTimetableBtn = document.getElementById('saveTimetableBtn');
-const classNoteForm = document.getElementById('classNoteForm');
-const classNotesList = document.getElementById('classNotesList');
 
-// ================= Stato =================
+// ----------------- Stato -----------------
 let currentSchool = null;
-let currentClass = null;
-let currentClassSubscription = null;
-let currentStudentSubscription = null;
+let currentClasse = null;
+let currentClassQueryUnsub = null;
+let currentStudentDocUnsub = null;
 let currentStudentId = null;
-let allStudentsInClass = [];
 
 const classesForTimetable = [
     { school: 'scientifico', classe: 1, label: '1 Scientifico' },
@@ -73,10 +92,10 @@ const classesForTimetable = [
     { school: 'linguistico', classe: 3, label: '3 Linguistico' },
     { school: 'linguistico', classe: 4, label: '4 Linguistico' },
     { school: 'linguistico', classe: 5, label: '5 Linguistico' },
-    { school: 'comune', classe: 4, label: '4 (Comune)' }
+    { school: 'comune', classe: 4, label: '4 (Comune)' } // per gestione 4L e 4S
 ];
 
-// ================= Funzioni UI =================
+// ----------------- Funzioni UI -----------------
 function renderDashboard() {
     dashboard.style.display = '';
     classView.style.display = 'none';
@@ -111,71 +130,27 @@ function renderDashboard() {
 }
 
 function openClass(school, classe) {
-    if (currentClassSubscription) currentClassSubscription.unsubscribe();
+    if (currentClassQueryUnsub) currentClassQueryUnsub();
 
     currentSchool = school;
-    currentClass = classe;
+    currentClasse = classe;
     dashboard.style.display = 'none';
     importSection.style.display = 'none';
     timetableSection.style.display = 'none';
     classView.style.display = '';
-    classTitle.textContent = `${school[0].toUpperCase() + school.slice(1)} – Classe ${classe}`;
+    classTitle.textContent = `${(school[0].toUpperCase() + school.slice(1))} — Classe ${classe}`;
 
-    // === Legge in tempo reale la tabella 'students' da Supabase ===
-    const studentsSubscription = supabase
-        .from('students')
-        .select('*')
-        .eq('school', school)
-        .eq('classe', classe)
-        .order('name')
-        .on('UPDATE', payload => {
-            const index = allStudentsInClass.findIndex(s => s.id === payload.new.id);
-            if (index !== -1) {
-                allStudentsInClass[index] = payload.new;
-                renderStudentsTable(allStudentsInClass);
-            }
-        })
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                const { data, error } = await supabase
-                    .from('students')
-                    .select('*')
-                    .eq('school', school)
-                    .eq('classe', classe)
-                    .order('name');
-                if (error) {
-                    console.error('Errore caricamento studenti:', error);
-                } else {
-                    allStudentsInClass = data;
-                    renderStudentsTable(allStudentsInClass);
-                }
-            }
+    const studentsCol = collection(db, 'students');
+    const q = query(studentsCol, where('school', '==', school), where('classe', '==', classe));
+    currentClassQueryUnsub = onSnapshot(q, snap => {
+        const docs = [];
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.deleted) return;
+            docs.push({ id: d.id, ...data });
         });
-    currentClassSubscription = studentsSubscription;
-    
-    // === Legge in tempo reale gli appunti di classe da Supabase ===
-    const classNotesSubscription = supabase
-        .from('class_notes') // Ho cambiato il nome della tabella a 'class_notes'
-        .select('notes')
-        .eq('school', school)
-        .eq('classe', classe)
-        .single()
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                const { data, error } = await supabase
-                    .from('class_notes')
-                    .select('notes')
-                    .eq('school', school)
-                    .eq('classe', classe)
-                    .single();
-                if (error) {
-                    console.error('Errore caricamento appunti di classe:', error);
-                    renderClassNotes([]);
-                } else {
-                    renderClassNotes(data ? data.notes : []);
-                }
-            }
-        });
+        renderStudentsTable(docs);
+    }, err => console.error('snapshot error', err));
 }
 
 function renderStudentsTable(students) {
@@ -187,41 +162,33 @@ function renderStudentsTable(students) {
         const tdIndex = document.createElement('td');
         tdIndex.textContent = index + 1;
         tr.appendChild(tdIndex);
+
         const tdName = document.createElement('td');
-        tdName.textContent = s.name || '';
+        const nameBtn = document.createElement('button');
+        nameBtn.className = 'btn';
+        nameBtn.style.padding = '6px 8px';
+        nameBtn.textContent = s.name || '—';
+        nameBtn.addEventListener('click', () => openStudentModal(s.id));
+        tdName.appendChild(nameBtn);
         tr.appendChild(tdName);
+
         const tdGrades = document.createElement('td');
-        const gradesBtn = document.createElement('button');
-        gradesBtn.className = 'btn';
-        gradesBtn.style.padding = '6px 8px';
-        gradesBtn.textContent = `Voti (${(s.grades || []).length})`;
-        gradesBtn.addEventListener('click', () => openStudentModal(s.id, 'grades'));
-        tdGrades.appendChild(gradesBtn);
+        tdGrades.innerHTML = `<div class="small-note">tot. voti: ${(s.grades || []).length}</div>`;
         tr.appendChild(tdGrades);
+
         const tdAbs = document.createElement('td');
-        const absencesBtn = document.createElement('button');
-        absencesBtn.className = 'btn';
-        absencesBtn.style.padding = '6px 8px';
-        absencesBtn.textContent = `Assenze (${(s.absences || []).length})`;
-        absencesBtn.addEventListener('click', () => openStudentModal(s.id, ('absences')));
-        tdAbs.appendChild(absencesBtn);
+        tdAbs.innerHTML = `<div class="small-note">tot. assenze: ${(s.absences || []).length}</div>`;
         tr.appendChild(tdAbs);
+
         const tdActions = document.createElement('td');
-        const detailsBtn = document.createElement('button');
-        detailsBtn.className = 'btn';
-        detailsBtn.style.padding = '6px 8px';
-        detailsBtn.textContent = 'Dettagli';
-        detailsBtn.addEventListener('click', () => openStudentModal(s.id));
-        tdActions.appendChild(detailsBtn);
         const delBtn = document.createElement('button');
         delBtn.className = 'btn';
         delBtn.textContent = 'Elimina';
         delBtn.addEventListener('click', async () => {
-            if (!confirm(`Elimina ${s.name}?`)) return;
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return alert('Devi essere autenticato per eliminare.');
+            if (!confirm(`Eliminare ${s.name}?`)) return;
+            if (!auth.currentUser) return alert('Devi essere autenticato per eliminare.');
             try {
-                await supabase.from('students').delete().eq('id', s.id);
+                await deleteDoc(doc(db, 'students', s.id));
             } catch (e) {
                 console.error(e);
                 alert('Errore eliminazione');
@@ -229,76 +196,14 @@ function renderStudentsTable(students) {
         });
         tdActions.appendChild(delBtn);
         tr.appendChild(tdActions);
+
         studentsTableBody.appendChild(tr);
     });
 }
 
-// ================= Gestione Appunti di Classe =================
-
-function renderClassNotes(notes) {
-    classNotesList.innerHTML = '';
-    if (notes) {
-        notes.slice().reverse().forEach(note => {
-            const li = document.createElement('li');
-            const date = note.created_at ? new Date(note.created_at).toLocaleDateString('it-IT') : '';
-            li.textContent = `${date} - ${note.text}`;
-            classNotesList.appendChild(li);
-        });
-    }
-}
-
-classNoteForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !currentSchool || !currentClass) {
-        alert('Devi essere autenticato e aver selezionato una classe.');
-        return;
-    }
-    const formData = new FormData(classNoteForm);
-    const noteText = formData.get('noteText');
-    const { data: existingNotes, error } = await supabase
-        .from('class_notes')
-        .select('notes')
-        .eq('school', currentSchool)
-        .eq('classe', currentClass)
-        .single();
-    if (error && error.code !== 'PGRST116') { // PGRST116 significa "not found"
-        console.error("Errore recupero nota di classe:", error);
-        alert("Errore durante il salvataggio dell'appunto.");
-        return;
-    }
-
-    try {
-        const newNote = {
-            text: noteText,
-            created_at: new Date().toISOString()
-        };
-        if (existingNotes) {
-            await supabase
-                .from('class_notes')
-                .update({ notes: [...existingNotes.notes, newNote] })
-                .eq('school', currentSchool)
-                .eq('classe', currentClass);
-        } else {
-            await supabase
-                .from('class_notes')
-                .insert([{
-                    school: currentSchool,
-                    classe: currentClass,
-                    notes: [newNote],
-                    user_id: session.user.id
-                }]);
-        }
-        classNoteForm.reset();
-    } catch (e) {
-        console.error("Errore salvataggio nota di classe:", e);
-        alert("Errore durante il salvataggio dell'appunto.");
-    }
-});
-
-// ================= Funzioni per la tabella orario =================
-const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', "Giovedì", "Venerdì"];
-const hours = ['I', "II", "III", 'IV', 'V', 'VI', 'VII'];
+// ----------------- Funzioni per la tabella orario -----------------
+const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
+const hours = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 function openTimetable() {
     dashboard.style.display = 'none';
@@ -310,16 +215,14 @@ function openTimetable() {
 
 async function loadTimetable() {
     timetableTable.querySelector('tbody').innerHTML = '';
-    const { data: timetableData, error } = await supabase
-        .from('timetables')
-        .select('data')
-        .single();
+    const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
+    const snap = await getDoc(timetableDocRef);
 
-    if (error && error.code !== 'PGRST116') {
-        console.error('Errore caricamento orario:', error);
+    let timetableData = null;
+    if (snap.exists()) {
+        timetableData = snap.data().data;
     }
 
-    const data = timetableData ? timetableData.data : null;
     hours.forEach((hour) => {
         const tr = document.createElement('tr');
         const tdHour = document.createElement('td');
@@ -328,7 +231,7 @@ async function loadTimetable() {
 
         dayMappings.forEach((day) => {
             const td = document.createElement('td');
-            const lesson = data?.find(item => item.hour === hour)?.[day] || '';
+            const lesson = timetableData?.find(item => item.hour === hour)?.[day] || '';
             td.textContent = lesson;
             tr.appendChild(td);
         });
@@ -343,6 +246,7 @@ showTimetableBtn.addEventListener('click', () => {
 editTimetableBtn.addEventListener('click', () => {
     editTimetableBtn.style.display = 'none';
     saveTimetableBtn.style.display = '';
+
     const cells = timetableTable.querySelectorAll('tbody td');
     cells.forEach(cell => {
         if (cell.cellIndex > 0) {
@@ -350,20 +254,24 @@ editTimetableBtn.addEventListener('click', () => {
             cell.innerHTML = '';
             const select = document.createElement('select');
             select.className = 'timetable-select';
+
             const emptyOption = document.createElement('option');
             emptyOption.value = '';
             emptyOption.textContent = '';
             select.appendChild(emptyOption);
+
             const availableOption = document.createElement('option');
             availableOption.value = 'Disponibile';
             availableOption.textContent = 'Disponibile';
             select.appendChild(availableOption);
+
             classesForTimetable.forEach(c => {
                 const option = document.createElement('option');
                 option.value = c.label;
                 option.textContent = c.label;
                 select.appendChild(option);
             });
+            
             if (currentContent) {
                 select.value = currentContent;
             }
@@ -375,6 +283,7 @@ editTimetableBtn.addEventListener('click', () => {
 saveTimetableBtn.addEventListener('click', async () => {
     saveTimetableBtn.style.display = 'none';
     editTimetableBtn.style.display = '';
+
     const rows = timetableTable.querySelectorAll('tbody tr');
     const timetableData = [];
     rows.forEach(row => {
@@ -389,20 +298,19 @@ saveTimetableBtn.addEventListener('click', async () => {
         });
         timetableData.push(rowData);
     });
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+
+    if (!auth.currentUser) {
         alert('Devi essere autenticato per salvare l\'orario.');
         return;
     }
 
     try {
-        const { data, error } = await supabase
-            .from('timetables')
-            .upsert({ data: timetableData, last_updated_by: session.user.id, last_updated_at: new Date().toISOString() })
-            .eq('id', 'unique_timetable'); // Assumo che tu abbia un ID univoco per il documento
-        
-        if (error) throw error;
-        
+        const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
+        await setDoc(timetableDocRef, {
+            data: timetableData,
+            lastUpdatedBy: auth.currentUser.uid,
+            lastUpdatedAt: new Date().toISOString()
+        });
         alert('Orario salvato con successo!');
     } catch (e) {
         console.error("Errore salvataggio orario:", e);
@@ -410,73 +318,59 @@ saveTimetableBtn.addEventListener('click', async () => {
     }
 });
 
-// ================= Modal studente =================
-function showModal(initialTab = null) { studentModal.style.display = ''; }
+// ----------------- Modal studente -----------------
+function showModal() { studentModal.style.display = ''; }
 function hideModal() {
     studentModal.style.display = 'none';
     studentNameEl.textContent = '';
     gradesList.innerHTML = '';
     absencesList.innerHTML = '';
     notesList.innerHTML = '';
-    if (currentStudentSubscription) {
-        currentStudentSubscription.unsubscribe();
-        currentStudentSubscription = null;
-    }
+    if (currentStudentDocUnsub) { currentStudentDocUnsub(); currentStudentDocUnsub = null; }
     currentStudentId = null;
 }
 
-async function openStudentModal(studentId, initialTab = 'all') {
+async function openStudentModal(studentId) {
     if (!studentId) return;
     currentStudentId = studentId;
-    showModal(initialTab);
+    showModal();
 
-    if (currentStudentSubscription) currentStudentSubscription.unsubscribe();
-
-    currentStudentSubscription = supabase
-        .from('students')
-        .select('*')
-        .eq('id', studentId)
-        .single()
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                const { data, error } = await supabase
-                    .from('students')
-                    .select('*')
-                    .eq('id', studentId)
-                    .single();
-                if (error) {
-                    console.error('Errore caricamento studente:', error);
-                } else {
-                    studentNameEl.textContent = data.name || '';
-                    populateHistory(data);
-                }
-            }
-        });
+    const docRef = doc(db, 'students', studentId);
+    if (currentStudentDocUnsub) currentStudentDocUnsub();
+    currentStudentDocUnsub = onSnapshot(docRef, snap => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        studentNameEl.textContent = data.name || '—';
+        populateHistory(data);
+    }, err => console.error('doc snapshot', err));
 }
 
 function populateHistory(data) {
     gradesList.innerHTML = '';
     absencesList.innerHTML = '';
     notesList.innerHTML = '';
+
     const grades = data.grades || [];
     const absences = data.absences || [];
     const notes = data.notes || [];
+
     document.getElementById('summaryGrades').textContent = grades.length;
     document.getElementById('summaryAbsences').textContent = absences.length;
     document.getElementById('summaryNotes').textContent = notes.length;
+
     grades.slice().reverse().forEach(g => {
         const li = document.createElement('li');
-        li.textContent = `${g.date || ''} – ${g.subject || '-'}: ${g.value}`;
+        li.textContent = `${g.date || ''} — ${g.subject || ''}: ${g.value}`;
         gradesList.appendChild(li);
     });
     absences.slice().reverse().forEach(a => {
         const li = document.createElement('li');
-        li.textContent = `${a.date || ''} – ${a.reason || ''}`;
+        li.textContent = `${a.date || ''} — ${a.reason || ''}`;
         absencesList.appendChild(li);
     });
     notes.slice().reverse().forEach(n => {
         const li = document.createElement('li');
-        li.textContent = `${n.created_at ? n.created_at.slice(0, 10) : ''} – ${n.text || ''}`;
+        li.textContent = `${n.createdAt ? n.createdAt.slice(0, 10) : ''} — ${n.text || ''}`;
         notesList.appendChild(li);
     });
 }
@@ -484,16 +378,7 @@ function populateHistory(data) {
 modalOverlay.addEventListener('click', hideModal);
 closeModalBtn.addEventListener('click', hideModal);
 
-// ================= Logica di ricerca =================
-studentSearchInput.addEventListener('input', () => {
-    const searchTerm = studentSearchInput.value.toLowerCase();
-    const filteredStudents = allStudentsInClass.filter(student =>
-        student.name && student.name.toLowerCase().includes(searchTerm)
-    );
-    renderStudentsTable(filteredStudents);
-});
-
-// ================= Forms in modal =================
+// ----------------- Forms in modal -----------------
 gradeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentStudentId) return alert('Seleziona uno studente');
@@ -501,17 +386,12 @@ gradeForm.addEventListener('submit', async (e) => {
     const subject = form.get('subject');
     const value = Number(form.get('value'));
     const date = form.get('date') || new Date().toISOString().slice(0, 10);
-    const gradeObj = { subject, value, date, created_at: new Date().toISOString() };
+    const gradeObj = { subject, value, date, createdAt: new Date().toISOString() };
     try {
-        await supabase
-            .from('students')
-            .update({ grades: supabase.functions.rpc('array_append', { array: 'grades', value: gradeObj }) })
-            .eq('id', currentStudentId);
+        const sref = doc(db, 'students', currentStudentId);
+        await updateDoc(sref, { grades: arrayUnion(gradeObj) });
         gradeForm.reset();
-    } catch (e) {
-        console.error(e);
-        alert('Errore salvataggio voto');
-    }
+    } catch (e) { console.error(e); alert('Errore salvataggio voto'); }
 });
 
 absenceForm.addEventListener('submit', async (e) => {
@@ -520,17 +400,12 @@ absenceForm.addEventListener('submit', async (e) => {
     const form = new FormData(absenceForm);
     const date = form.get('date');
     const reason = form.get('reason') || '';
-    const obj = { date, reason, created_at: new Date().toISOString() };
+    const obj = { date, reason, createdAt: new Date().toISOString() };
     try {
-        await supabase
-            .from('students')
-            .update({ absences: supabase.functions.rpc('array_append', { array: 'absences', value: obj }) })
-            .eq('id', currentStudentId);
+        const sref = doc(db, 'students', currentStudentId);
+        await updateDoc(sref, { absences: arrayUnion(obj) });
         absenceForm.reset();
-    } catch (e) {
-        console.error(e);
-        alert('Errore salvataggio assenza');
-    }
+    } catch (e) { console.error(e); alert('Errore salvataggio assenza'); }
 });
 
 noteForm.addEventListener('submit', async (e) => {
@@ -538,40 +413,30 @@ noteForm.addEventListener('submit', async (e) => {
     if (!currentStudentId) return alert('Seleziona uno studente');
     const form = new FormData(noteForm);
     const text = form.get('text');
-    const obj = { text, created_at: new Date().toISOString() };
+    const obj = { text, createdAt: new Date().toISOString() };
     try {
-        await supabase
-            .from('students')
-            .update({ notes: supabase.functions.rpc('array_append', { array: 'notes', value: obj }) })
-            .eq('id', currentStudentId);
+        const sref = doc(db, 'students', currentStudentId);
+        await updateDoc(sref, { notes: arrayUnion(obj) });
         noteForm.reset();
-    } catch (e) {
-        console.error(e);
-        alert('Errore salvataggio nota');
-    }
+    } catch (e) { console.error(e); alert('Errore salvataggio nota'); }
 });
 
-// ================= AUTENTICAZIONE =================
+// ----------------- AUTH -----------------
 loginBtn.addEventListener('click', async () => {
     try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-        });
-        if (error) throw error;
+        await signInWithPopup(auth, provider);
     } catch (e) {
         console.error('auth error', e);
         alert('Errore durante il login: ' + (e.message || e));
     }
 });
-
 logoutBtn.addEventListener('click', async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) console.error('Errore logout:', error);
+    await signOut(auth);
 });
 
-supabase.auth.onAuthStateChange((event, session) => {
-    if (session) {
-        userInfo.textContent = session.user.user_metadata.name || session.user.email;
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        userInfo.textContent = user.displayName || user.email;
         loginBtn.style.display = 'none';
         logoutBtn.style.display = '';
         renderDashboard();
@@ -586,15 +451,11 @@ supabase.auth.onAuthStateChange((event, session) => {
     }
 });
 
-// ================= Header navigation =================
+// ----------------- Header navigation -----------------
 homeBtn.addEventListener('click', () => {
-    if (currentClassSubscription) {
-        currentClassSubscription.unsubscribe();
-        currentClassSubscription = null;
-    }
+    if (currentClassQueryUnsub) { currentClassQueryUnsub(); currentClassQueryUnsub = null; }
     renderDashboard();
 });
-
 importBtnHeader.addEventListener('click', () => {
     dashboard.style.display = 'none';
     classView.style.display = 'none';
@@ -602,42 +463,34 @@ importBtnHeader.addEventListener('click', () => {
     importSection.style.display = '';
     hideModal();
 });
-
 backBtn.addEventListener('click', () => {
-    if (currentClassSubscription) {
-        currentClassSubscription.unsubscribe();
-        currentClassSubscription = null;
-    }
+    if (currentClassQueryUnsub) { currentClassQueryUnsub(); currentClassQueryUnsub = null; }
     renderDashboard();
 });
 
-// ================= Aggiungi studente manuale =================
+// ----------------- Aggiungi studente manuale -----------------
 addStudentBtn.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Devi autenticarti per aggiungere studenti.');
+    if (!auth.currentUser) return alert('Devi autenticarti per aggiungere studenti.');
     const name = prompt('Nome completo alunno:');
     if (!name) return;
     try {
-        const { error } = await supabase
-            .from('students')
-            .insert([{
-                name,
-                school: currentSchool,
-                classe: currentClass,
-                grades: [],
-                absences: [],
-                notes: [],
-                user_id: session.user.id,
-                created_at: new Date().toISOString()
-            }]);
-        if (error) throw error;
+        await addDoc(collection(db, 'students'), {
+            name,
+            school: currentSchool,
+            classe: currentClasse,
+            grades: [],
+            absences: [],
+            notes: [],
+            createdBy: auth.currentUser.uid,
+            createdAt: new Date().toISOString()
+        });
     } catch (e) {
         console.error(e);
         alert('Errore aggiunta studente');
     }
 });
 
-// ================= IMPORT XLSX (prima colonna) =================
+// ----------------- IMPORT XLSX (prima colonna) -----------------
 let workbookGlobal = null;
 xlsxInput.addEventListener('change', (ev) => {
     const f = ev.target.files[0];
@@ -648,10 +501,9 @@ xlsxInput.addEventListener('change', (ev) => {
         const wb = XLSX.read(data, { type: 'array' });
         workbookGlobal = wb;
         sheetSelect.innerHTML = '';
-        wb.SheetNames.forEach(s => {
+        wb.SheetNames.forEach((s) => {
             const opt = document.createElement('option');
-            opt.value = s;
-            opt.textContent = s;
+            opt.value = s; opt.textContent = s;
             sheetSelect.appendChild(opt);
         });
         sheetSelect.style.display = '';
@@ -667,14 +519,13 @@ previewBtn.addEventListener('click', () => {
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
     const hasHeader = hasHeaderCheckbox.checked;
     const displayRows = hasHeader ? rows.slice(1) : rows;
-    const preview = displayRows.slice(0, 8).map(r => (r && r[0]) ? String(r[0]).trim() : '').join('\n');
+    const preview = displayRows.slice(0, 8).map(r => (r && r[0]) ? r[0] : '').join('\n');
     previewContent.textContent = preview || '(foglio vuoto o mapping errato)';
     previewArea.style.display = '';
 });
 
 doImportBtn.addEventListener('click', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Devi autenticarti (Google) per importare dati.');
+    if (!auth.currentUser) return alert('Devi autenticarti (Google) per importare dati.');
     if (!workbookGlobal) return alert('Carica prima un file .xlsx');
 
     const sheet = workbookGlobal.Sheets[sheetSelect.value];
@@ -690,43 +541,30 @@ doImportBtn.addEventListener('click', async () => {
 
     const toAdd = [];
     const skipped = [];
-    
-    for (const x of dataRows) {
-        const name = (x && x[0]) ? String(x[0]).trim() : null;
+
+    for (const r of dataRows) {
+        const name = (r && r[0]) ? String(r[0]).trim() : null;
         if (!name) continue;
-        
+
         let exists = false;
         if (tryDedupe) {
-            const { data: existingStudents, error } = await supabase
-                .from('students')
-                .select('*')
-                .eq('school', school)
-                .eq('classe', classe)
-                .eq('name', name);
-            if (error) console.error('Errore dedupe:', error);
-            if (existingStudents && existingStudents.length > 0) exists = true;
+            const q = query(collection(db, 'students'), where('school', '==', school), where('classe', '==', classe), where('name', '==', name));
+            const snap = await getDocs(q);
+            if (!snap.empty) exists = true;
         }
-        
-        if (exists) {
-            skipped.push({ name, reason: 'duplicato' });
-            continue;
-        }
-        
+        if (exists) { skipped.push({ name, reason: 'duplicato' }); continue; }
+
         try {
-            const { error } = await supabase
-                .from('students')
-                .insert([{
-                    name,
-                    school,
-                    classe,
-                    grades: [],
-                    absences: [],
-                    notes: [],
-                    user_id: session.user.id,
-                    created_at: new Date().toISOString()
-                }]);
-            
-            if (error) throw error;
+            await addDoc(collection(db, 'students'), {
+                name,
+                school,
+                classe,
+                grades: [],
+                absences: [],
+                notes: [],
+                createdBy: auth.currentUser.uid,
+                createdAt: new Date().toISOString()
+            });
             toAdd.push(name);
         } catch (e) {
             console.error('Import error for', name, e);
