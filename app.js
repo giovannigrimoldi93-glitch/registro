@@ -1,7 +1,7 @@
 // app.js (modulo) - Versione completa con appunti di classe
 // Integrato con Supabase anziché Firebase
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/index.min.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
 
 // ================= CONFIG SUPABASE (sostituisci con le tue chiavi) =================
