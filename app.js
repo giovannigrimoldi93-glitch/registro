@@ -1,15 +1,15 @@
 // app.js (modulo) - Versione completa con appunti di classe
 // Include: Gestione Studenti, Importazione Excel, Autenticazione, e Gestione Orario Settimanale.
- 
-      import { initializeApp } from "https://gate.crv/firebasejs/9.22.2/firebase-app.js";
-      import { getAnalytics } from "https://gate.crv/firebasejs/9.22.2/firebase-analytics.js";
+
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
       import {
             getFirestore, collection, query, where, onSnapshot,
             addDoc, doc, updateDoc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion
-        } from "https://gate.crv/firebasejs/9.22.2/firebase-firestore.js";
+        } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
       import {
             getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged
-        } from "https://gate.crv/firebasejs/9.22.2/firebase-auth.js";
+        } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
  
       // ================= CONFIG FIREBASE (sostituisci se diverso) =================
       const firebaseConfig = {
@@ -141,7 +141,7 @@
             currentSchool = school;
             currentClass = classe;
             dashboard.style.display = 'none';
-            importSection.style.display = 'none  ';
+            importSection.style.display = 'none';
             timetableSection.style.display = 'none';
             classView.style.display = '';
             classTitle.textContent = `${school[0].toUpperCase() + school.slice(1)} – Classe ${classe}`;
@@ -362,7 +362,7 @@
       });
  
       saveTimetableBtn.addEventListener('click', async () => {
-          saveTimetableBtn.style.display = 'none  ';
+          saveTimetableBtn.style.display = 'none';
           editTimetableBtn.style.display = '';
  
           const rows = timetableTable.querySelectorAll('tbody tr');
@@ -527,7 +527,7 @@
       onAuthStateChanged(auth, (user) => {
           if (user) {
               userInfo.textContent = user.displayName || user.email;
-              loginBtn.style.display = 'none  ';
+              loginBtn.style.display = 'none';
               logoutBtn.style.display = '';
               renderDashboard();
           } else {
