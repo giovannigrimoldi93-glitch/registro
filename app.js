@@ -1,17 +1,16 @@
-// app.js (module) - Versione pulita
-// Include: Gestione Studenti, Importazione XLSX, Autenticazione, e Gestione Orario Settimanale.
+// app.js (module) - Versione con eliminazione voti/assenze e appunti di classe
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js";
 import {
     getFirestore, collection, query, where, onSnapshot,
-    addDoc, doc, updateDoc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion
+    addDoc, doc, updateDoc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 import {
     getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
-// ----------------- CONFIG FIREBASE (sostituisci se diverso) -----------------
+// ----------------- CONFIG FIREBASE -----------------
 const firebaseConfig = {
     apiKey: "AIzaSyDAP5DTAg7TX9SKdIMLFFngo_csolzkswo",
     authDomain: "registro-d308f.firebaseapp.com",
@@ -68,11 +67,17 @@ const gradeForm = document.getElementById('gradeForm');
 const absenceForm = document.getElementById('absenceForm');
 const noteForm = document.getElementById('noteForm');
 
-// Riferimenti specifici per la tabella orario
 const showTimetableBtn = document.getElementById('showTimetableBtn');
 const timetableTable = document.getElementById('timetable');
 const editTimetableBtn = document.getElementById('editTimetableBtn');
 const saveTimetableBtn = document.getElementById('saveTimetableBtn');
+
+// Riferimenti UI Appunti di Classe
+const toggleNotesBtn = document.getElementById('toggleNotesBtn');
+const notesSection = document.getElementById('notesSection');
+const classNotesTextarea = document.getElementById('classNotesTextarea');
+const saveNotesBtn = document.getElementById('saveNotesBtn');
+const notesStatus = document.getElementById('notesStatus');
 
 // ----------------- Stato -----------------
 let currentSchool = null;
@@ -82,17 +87,12 @@ let currentStudentDocUnsub = null;
 let currentStudentId = null;
 
 const classesForTimetable = [
-    { school: 'scientifico', classe: 1, label: '1 Scientifico' },
-    { school: 'scientifico', classe: 2, label: '2 Scientifico' },
-    { school: 'scientifico', classe: 3, label: '3 Scientifico' },
-    { school: 'scientifico', classe: 4, label: '4 Scientifico' },
-    { school: 'scientifico', classe: 5, label: '5 Scientifico' },
-    { school: 'linguistico', classe: 1, label: '1 Linguistico' },
-    { school: 'linguistico', classe: 2, label: '2 Linguistico' },
-    { school: 'linguistico', classe: 3, label: '3 Linguistico' },
-    { school: 'linguistico', classe: 4, label: '4 Linguistico' },
-    { school: 'linguistico', classe: 5, label: '5 Linguistico' },
-    { school: 'comune', classe: 4, label: '4 (Comune)' } // per gestione 4L e 4S
+    { school: 'scientifico', classe: 1, label: '1 Scientifico' }, { school: 'scientifico', classe: 2, label: '2 Scientifico' },
+    { school: 'scientifico', classe: 3, label: '3 Scientifico' }, { school: 'scientifico', classe: 4, label: '4 Scientifico' },
+    { school: 'scientifico', classe: 5, label: '5 Scientifico' }, { school: 'linguistico', classe: 1, label: '1 Linguistico' },
+    { school: 'linguistico', classe: 2, label: '2 Linguistico' }, { school: 'linguistico', classe: 3, label: '3 Linguistico' },
+    { school: 'linguistico', classe: 4, label: '4 Linguistico' }, { school: 'linguistico', classe: 5, label: '5 Linguistico' },
+    { school: 'comune', classe: 4, label: '4 (Comune)' }
 ];
 
 // ----------------- Funzioni UI -----------------
@@ -105,8 +105,7 @@ function renderDashboard() {
 
     schoolsContainer.innerHTML = '';
     const licei = [
-        { id: 'scientifico', label: 'Liceo Scientifico' },
-        { id: 'linguistico', label: 'Liceo Linguistico' }
+        { id: 'scientifico', label: 'Liceo Scientifico' }, { id: 'linguistico', label: 'Liceo Linguistico' }
     ];
     licei.forEach(liceo => {
         const card = document.createElement('div');
@@ -139,6 +138,12 @@ function openClass(school, classe) {
     timetableSection.style.display = 'none';
     classView.style.display = '';
     classTitle.textContent = `${(school[0].toUpperCase() + school.slice(1))} — Classe ${classe}`;
+    
+    // Reset e caricamento appunti
+    notesSection.style.display = 'none';
+    classNotesTextarea.value = '';
+    notesStatus.textContent = '';
+    loadClassNotes();
 
     const studentsCol = collection(db, 'students');
     const q = query(studentsCol, where('school', '==', school), where('classe', '==', classe));
@@ -159,32 +164,15 @@ function renderStudentsTable(students) {
 
     students.forEach((s, index) => {
         const tr = document.createElement('tr');
-        const tdIndex = document.createElement('td');
-        tdIndex.textContent = index + 1;
-        tr.appendChild(tdIndex);
-
-        const tdName = document.createElement('td');
-        const nameBtn = document.createElement('button');
-        nameBtn.className = 'btn';
-        nameBtn.style.padding = '6px 8px';
-        nameBtn.textContent = s.name || '—';
-        nameBtn.addEventListener('click', () => openStudentModal(s.id));
-        tdName.appendChild(nameBtn);
-        tr.appendChild(tdName);
-
-        const tdGrades = document.createElement('td');
-        tdGrades.innerHTML = `<div class="small-note">tot. voti: ${(s.grades || []).length}</div>`;
-        tr.appendChild(tdGrades);
-
-        const tdAbs = document.createElement('td');
-        tdAbs.innerHTML = `<div class="small-note">tot. assenze: ${(s.absences || []).length}</div>`;
-        tr.appendChild(tdAbs);
-
-        const tdActions = document.createElement('td');
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn';
-        delBtn.textContent = 'Elimina';
-        delBtn.addEventListener('click', async () => {
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td><button class="btn student-name-btn">${s.name || '—'}</button></td>
+            <td><div class="small-note">tot. voti: ${(s.grades || []).length}</div></td>
+            <td><div class="small-note">tot. assenze: ${(s.absences || []).length}</div></td>
+            <td><button class="btn delete-student-btn">Elimina</button></td>
+        `;
+        tr.querySelector('.student-name-btn').addEventListener('click', () => openStudentModal(s.id));
+        tr.querySelector('.delete-student-btn').addEventListener('click', async () => {
             if (!confirm(`Eliminare ${s.name}?`)) return;
             if (!auth.currentUser) return alert('Devi essere autenticato per eliminare.');
             try {
@@ -194,12 +182,59 @@ function renderStudentsTable(students) {
                 alert('Errore eliminazione');
             }
         });
-        tdActions.appendChild(delBtn);
-        tr.appendChild(tdActions);
-
         studentsTableBody.appendChild(tr);
     });
 }
+
+// ----------- Funzioni per gli appunti di classe -----------
+async function loadClassNotes() {
+    if (!currentSchool || !currentClasse) return;
+    const classId = `${currentSchool}-${currentClasse}`;
+    const notesDocRef = doc(db, 'classNotes', classId);
+
+    try {
+        const docSnap = await getDoc(notesDocRef);
+        if (docSnap.exists()) {
+            classNotesTextarea.value = docSnap.data().notes || '';
+            notesStatus.textContent = `Caricato il ${new Date(docSnap.data().updatedAt).toLocaleString()}`;
+        } else {
+            classNotesTextarea.value = '';
+            notesStatus.textContent = 'Nessun appunto trovato per questa classe.';
+        }
+    } catch (e) {
+        console.error("Errore nel caricamento degli appunti:", e);
+        notesStatus.textContent = "Errore di caricamento.";
+    }
+}
+
+saveNotesBtn.addEventListener('click', async () => {
+    if (!auth.currentUser) return alert('Devi essere autenticato per salvare.');
+    if (!currentSchool || !currentClasse) return;
+
+    const classId = `${currentSchool}-${currentClasse}`;
+    const notesDocRef = doc(db, 'classNotes', classId);
+    const notesContent = classNotesTextarea.value;
+    notesStatus.textContent = 'Salvataggio...';
+
+    try {
+        await setDoc(notesDocRef, {
+            notes: notesContent,
+            updatedBy: auth.currentUser.uid,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        notesStatus.textContent = `Salvato ora.`;
+    } catch (e) {
+        console.error("Errore salvataggio appunti:", e);
+        notesStatus.textContent = 'Errore durante il salvataggio.';
+        alert('Si è verificato un errore.');
+    }
+});
+
+toggleNotesBtn.addEventListener('click', () => {
+    const isVisible = notesSection.style.display === '';
+    notesSection.style.display = isVisible ? 'none' : '';
+});
+
 
 // ----------------- Funzioni per la tabella orario -----------------
 const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
@@ -217,92 +252,49 @@ async function loadTimetable() {
     timetableTable.querySelector('tbody').innerHTML = '';
     const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
     const snap = await getDoc(timetableDocRef);
-
-    let timetableData = null;
-    if (snap.exists()) {
-        timetableData = snap.data().data;
-    }
+    let timetableData = snap.exists() ? snap.data().data : null;
 
     hours.forEach((hour) => {
         const tr = document.createElement('tr');
-        const tdHour = document.createElement('td');
-        tdHour.textContent = hour;
-        tr.appendChild(tdHour);
-
-        dayMappings.forEach((day) => {
-            const td = document.createElement('td');
+        tr.innerHTML = `<td>${hour}</td>` + dayMappings.map(day => {
             const lesson = timetableData?.find(item => item.hour === hour)?.[day] || '';
-            td.textContent = lesson;
-            tr.appendChild(td);
-        });
+            return `<td>${lesson}</td>`;
+        }).join('');
         timetableTable.querySelector('tbody').appendChild(tr);
     });
 }
 
-showTimetableBtn.addEventListener('click', () => {
-    openTimetable();
-});
+showTimetableBtn.addEventListener('click', openTimetable);
 
 editTimetableBtn.addEventListener('click', () => {
     editTimetableBtn.style.display = 'none';
     saveTimetableBtn.style.display = '';
-
-    const cells = timetableTable.querySelectorAll('tbody td');
-    cells.forEach(cell => {
-        if (cell.cellIndex > 0) {
-            const currentContent = cell.textContent.trim();
-            cell.innerHTML = '';
-            const select = document.createElement('select');
-            select.className = 'timetable-select';
-
-            const emptyOption = document.createElement('option');
-            emptyOption.value = '';
-            emptyOption.textContent = '';
-            select.appendChild(emptyOption);
-
-            const availableOption = document.createElement('option');
-            availableOption.value = 'Disponibile';
-            availableOption.textContent = 'Disponibile';
-            select.appendChild(availableOption);
-
-            classesForTimetable.forEach(c => {
-                const option = document.createElement('option');
-                option.value = c.label;
-                option.textContent = c.label;
-                select.appendChild(option);
-            });
-            
-            if (currentContent) {
-                select.value = currentContent;
-            }
-            cell.appendChild(select);
-        }
+    timetableTable.querySelectorAll('tbody td:not(:first-child)').forEach(cell => {
+        const currentContent = cell.textContent.trim();
+        cell.innerHTML = `<select class="timetable-select">
+            <option value=""></option>
+            <option value="Disponibile">Disponibile</option>
+            ${classesForTimetable.map(c => `<option value="${c.label}" ${currentContent === c.label ? 'selected' : ''}>${c.label}</option>`).join('')}
+        </select>`;
     });
 });
 
 saveTimetableBtn.addEventListener('click', async () => {
+    if (!auth.currentUser) return alert('Devi essere autenticato per salvare l\'orario.');
     saveTimetableBtn.style.display = 'none';
     editTimetableBtn.style.display = '';
 
-    const rows = timetableTable.querySelectorAll('tbody tr');
-    const timetableData = [];
-    rows.forEach(row => {
-        const hour = row.querySelector('td:first-child').textContent;
+    const timetableData = Array.from(timetableTable.querySelectorAll('tbody tr')).map(row => {
+        const hour = row.cells[0].textContent;
         const rowData = { hour };
-        const cells = row.querySelectorAll('td:not(:first-child)');
-        cells.forEach((cell, index) => {
+        Array.from(row.cells).slice(1).forEach((cell, index) => {
             const select = cell.querySelector('select');
             const lesson = select ? select.value : cell.textContent.trim();
             rowData[dayMappings[index]] = lesson;
             cell.textContent = lesson;
         });
-        timetableData.push(rowData);
+        return rowData;
     });
-
-    if (!auth.currentUser) {
-        alert('Devi essere autenticato per salvare l\'orario.');
-        return;
-    }
 
     try {
         const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
@@ -322,10 +314,6 @@ saveTimetableBtn.addEventListener('click', async () => {
 function showModal() { studentModal.style.display = ''; }
 function hideModal() {
     studentModal.style.display = 'none';
-    studentNameEl.textContent = '';
-    gradesList.innerHTML = '';
-    absencesList.innerHTML = '';
-    notesList.innerHTML = '';
     if (currentStudentDocUnsub) { currentStudentDocUnsub(); currentStudentDocUnsub = null; }
     currentStudentId = null;
 }
@@ -334,15 +322,38 @@ async function openStudentModal(studentId) {
     if (!studentId) return;
     currentStudentId = studentId;
     showModal();
-
-    const docRef = doc(db, 'students', studentId);
     if (currentStudentDocUnsub) currentStudentDocUnsub();
-    currentStudentDocUnsub = onSnapshot(docRef, snap => {
+    currentStudentDocUnsub = onSnapshot(doc(db, 'students', studentId), snap => {
         if (!snap.exists()) return;
         const data = snap.data();
         studentNameEl.textContent = data.name || '—';
         populateHistory(data);
     }, err => console.error('doc snapshot', err));
+}
+
+// *** NUOVA LOGICA DI ELIMINAZIONE ***
+async function handleDeleteGrade(grade) {
+    if (!currentStudentId || !grade) return;
+    if (!confirm(`Sei sicuro di voler eliminare il voto ${grade.value} di ${grade.subject}?`)) return;
+    try {
+        const sref = doc(db, 'students', currentStudentId);
+        await updateDoc(sref, { grades: arrayRemove(grade) });
+    } catch (e) {
+        console.error(e);
+        alert('Errore durante l\'eliminazione del voto.');
+    }
+}
+
+async function handleDeleteAbsence(absence) {
+    if (!currentStudentId || !absence) return;
+    if (!confirm(`Sei sicuro di voler eliminare l'assenza del ${absence.date}?`)) return;
+    try {
+        const sref = doc(db, 'students', currentStudentId);
+        await updateDoc(sref, { absences: arrayRemove(absence) });
+    } catch (e) {
+        console.error(e);
+        alert('Errore durante l\'eliminazione dell\'assenza.');
+    }
 }
 
 function populateHistory(data) {
@@ -360,14 +371,32 @@ function populateHistory(data) {
 
     grades.slice().reverse().forEach(g => {
         const li = document.createElement('li');
-        li.textContent = `${g.date || ''} — ${g.subject || ''}: ${g.value}`;
+        const text = document.createElement('span');
+        text.textContent = `${g.date || ''} — ${g.subject || ''}: ${g.value}`;
+        li.appendChild(text);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Elimina';
+        delBtn.className = 'delete-item-btn';
+        delBtn.addEventListener('click', () => handleDeleteGrade(g));
+        li.appendChild(delBtn);
         gradesList.appendChild(li);
     });
+
     absences.slice().reverse().forEach(a => {
         const li = document.createElement('li');
-        li.textContent = `${a.date || ''} — ${a.reason || ''}`;
+        const text = document.createElement('span');
+        text.textContent = `${a.date || ''} — ${a.reason || 'Nessun motivo'}`;
+        li.appendChild(text);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Elimina';
+        delBtn.className = 'delete-item-btn';
+        delBtn.addEventListener('click', () => handleDeleteAbsence(a));
+        li.appendChild(delBtn);
         absencesList.appendChild(li);
     });
+    
     notes.slice().reverse().forEach(n => {
         const li = document.createElement('li');
         li.textContent = `${n.createdAt ? n.createdAt.slice(0, 10) : ''} — ${n.text || ''}`;
@@ -379,77 +408,56 @@ modalOverlay.addEventListener('click', hideModal);
 closeModalBtn.addEventListener('click', hideModal);
 
 // ----------------- Forms in modal -----------------
-gradeForm.addEventListener('submit', async (e) => {
+async function handleFormSubmit(e, form, collectionName, createObject) {
     e.preventDefault();
     if (!currentStudentId) return alert('Seleziona uno studente');
-    const form = new FormData(gradeForm);
-    const subject = form.get('subject');
-    const value = Number(form.get('value'));
-    const date = form.get('date') || new Date().toISOString().slice(0, 10);
-    const gradeObj = { subject, value, date, createdAt: new Date().toISOString() };
     try {
+        const formData = new FormData(form);
+        const obj = createObject(formData);
         const sref = doc(db, 'students', currentStudentId);
-        await updateDoc(sref, { grades: arrayUnion(gradeObj) });
-        gradeForm.reset();
-    } catch (e) { console.error(e); alert('Errore salvataggio voto'); }
-});
+        await updateDoc(sref, { [collectionName]: arrayUnion(obj) });
+        form.reset();
+    } catch (err) {
+        console.error(err);
+        alert(`Errore salvataggio ${collectionName}`);
+    }
+}
 
-absenceForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentStudentId) return alert('Seleziona uno studente');
-    const form = new FormData(absenceForm);
-    const date = form.get('date');
-    const reason = form.get('reason') || '';
-    const obj = { date, reason, createdAt: new Date().toISOString() };
-    try {
-        const sref = doc(db, 'students', currentStudentId);
-        await updateDoc(sref, { absences: arrayUnion(obj) });
-        absenceForm.reset();
-    } catch (e) { console.error(e); alert('Errore salvataggio assenza'); }
-});
+gradeForm.addEventListener('submit', (e) => handleFormSubmit(e, gradeForm, 'grades', (form) => ({
+    subject: form.get('subject'),
+    value: Number(form.get('value')),
+    date: form.get('date') || new Date().toISOString().slice(0, 10),
+    createdAt: new Date().toISOString()
+})));
 
-noteForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentStudentId) return alert('Seleziona uno studente');
-    const form = new FormData(noteForm);
-    const text = form.get('text');
-    const obj = { text, createdAt: new Date().toISOString() };
-    try {
-        const sref = doc(db, 'students', currentStudentId);
-        await updateDoc(sref, { notes: arrayUnion(obj) });
-        noteForm.reset();
-    } catch (e) { console.error(e); alert('Errore salvataggio nota'); }
-});
+absenceForm.addEventListener('submit', (e) => handleFormSubmit(e, absenceForm, 'absences', (form) => ({
+    date: form.get('date'),
+    reason: form.get('reason') || '',
+    createdAt: new Date().toISOString()
+})));
+
+noteForm.addEventListener('submit', (e) => handleFormSubmit(e, noteForm, 'notes', (form) => ({
+    text: form.get('text'),
+    createdAt: new Date().toISOString()
+})));
 
 // ----------------- AUTH -----------------
-loginBtn.addEventListener('click', async () => {
-    try {
-        await signInWithPopup(auth, provider);
-    } catch (e) {
-        console.error('auth error', e);
-        alert('Errore durante il login: ' + (e.message || e));
-    }
-});
-logoutBtn.addEventListener('click', async () => {
-    await signOut(auth);
-});
-
 onAuthStateChanged(auth, (user) => {
-    if (user) {
-        userInfo.textContent = user.displayName || user.email;
-        loginBtn.style.display = 'none';
-        logoutBtn.style.display = '';
-        renderDashboard();
-    } else {
-        userInfo.textContent = '';
-        loginBtn.style.display = '';
-        logoutBtn.style.display = 'none';
+    userInfo.textContent = user ? (user.displayName || user.email) : '';
+    loginBtn.style.display = user ? 'none' : '';
+    logoutBtn.style.display = user ? '' : 'none';
+    if (!user) {
         dashboard.style.display = 'none';
         classView.style.display = 'none';
         importSection.style.display = 'none';
         timetableSection.style.display = 'none';
+    } else {
+        renderDashboard();
     }
 });
+
+loginBtn.addEventListener('click', () => signInWithPopup(auth, provider).catch(e => console.error('auth error', e)));
+logoutBtn.addEventListener('click', () => signOut(auth));
 
 // ----------------- Header navigation -----------------
 homeBtn.addEventListener('click', () => {
@@ -475,14 +483,9 @@ addStudentBtn.addEventListener('click', async () => {
     if (!name) return;
     try {
         await addDoc(collection(db, 'students'), {
-            name,
-            school: currentSchool,
-            classe: currentClasse,
-            grades: [],
-            absences: [],
-            notes: [],
-            createdBy: auth.currentUser.uid,
-            createdAt: new Date().toISOString()
+            name, school: currentSchool, classe: currentClasse,
+            grades: [], absences: [], notes: [],
+            createdBy: auth.currentUser.uid, createdAt: new Date().toISOString()
         });
     } catch (e) {
         console.error(e);
@@ -490,80 +493,69 @@ addStudentBtn.addEventListener('click', async () => {
     }
 });
 
-// ----------------- IMPORT XLSX (prima colonna) -----------------
+// ----------------- IMPORT XLSX -----------------
 let workbookGlobal = null;
 xlsxInput.addEventListener('change', (ev) => {
-    const f = ev.target.files[0];
-    if (!f) return;
+    const file = ev.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
-        const data = evt.target.result;
-        const wb = XLSX.read(data, { type: 'array' });
-        workbookGlobal = wb;
-        sheetSelect.innerHTML = '';
-        wb.SheetNames.forEach((s) => {
-            const opt = document.createElement('option');
-            opt.value = s; opt.textContent = s;
-            sheetSelect.appendChild(opt);
-        });
+    reader.onload = (e) => {
+        const data = e.target.result;
+        workbookGlobal = XLSX.read(data, { type: 'array' });
+        sheetSelect.innerHTML = workbookGlobal.SheetNames.map(s => `<option value="${s}">${s}</option>`).join('');
         sheetSelect.style.display = '';
         previewBtn.style.display = '';
         doImportBtn.style.display = '';
     };
-    reader.readAsArrayBuffer(f);
+    reader.readAsArrayBuffer(file);
 });
 
 previewBtn.addEventListener('click', () => {
     if (!workbookGlobal) return alert('Carica prima un file .xlsx');
     const sheet = workbookGlobal.Sheets[sheetSelect.value];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
-    const hasHeader = hasHeaderCheckbox.checked;
-    const displayRows = hasHeader ? rows.slice(1) : rows;
-    const preview = displayRows.slice(0, 8).map(r => (r && r[0]) ? r[0] : '').join('\n');
+    const displayRows = hasHeaderCheckbox.checked ? rows.slice(1) : rows;
+    const preview = displayRows.slice(0, 8).map(r => r?.[0] || '').join('\n');
     previewContent.textContent = preview || '(foglio vuoto o mapping errato)';
     previewArea.style.display = '';
 });
 
 doImportBtn.addEventListener('click', async () => {
-    if (!auth.currentUser) return alert('Devi autenticarti (Google) per importare dati.');
+    if (!auth.currentUser) return alert('Devi autenticarti per importare dati.');
     if (!workbookGlobal) return alert('Carica prima un file .xlsx');
-
+    
     const sheet = workbookGlobal.Sheets[sheetSelect.value];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
-    const hasHeader = hasHeaderCheckbox.checked;
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-    const target = importClassSelect.value.split('-');
-    const school = target[0];
-    const classe = Number(target[1]);
+    const dataRows = hasHeaderCheckbox.checked ? rows.slice(1) : rows;
+    const [school, classeStr] = importClassSelect.value.split('-');
+    const classe = Number(classeStr);
     const tryDedupe = tryDedupeCheckbox.checked;
 
-    if (!dataRows || dataRows.length === 0) return alert('Foglio vuoto');
+    if (dataRows.length === 0) return alert('Foglio vuoto');
+    
+    let existingNames = new Set();
+    if (tryDedupe) {
+        const q = query(collection(db, 'students'), where('school', '==', school), where('classe', '==', classe));
+        const snap = await getDocs(q);
+        snap.forEach(doc => existingNames.add(doc.data().name));
+    }
 
     const toAdd = [];
     const skipped = [];
 
     for (const r of dataRows) {
-        const name = (r && r[0]) ? String(r[0]).trim() : null;
+        const name = String(r?.[0] || '').trim();
         if (!name) continue;
 
-        let exists = false;
-        if (tryDedupe) {
-            const q = query(collection(db, 'students'), where('school', '==', school), where('classe', '==', classe), where('name', '==', name));
-            const snap = await getDocs(q);
-            if (!snap.empty) exists = true;
+        if (tryDedupe && existingNames.has(name)) {
+            skipped.push({ name, reason: 'duplicato' });
+            continue;
         }
-        if (exists) { skipped.push({ name, reason: 'duplicato' }); continue; }
 
         try {
             await addDoc(collection(db, 'students'), {
-                name,
-                school,
-                classe,
-                grades: [],
-                absences: [],
-                notes: [],
-                createdBy: auth.currentUser.uid,
-                createdAt: new Date().toISOString()
+                name, school, classe, grades: [], absences: [], notes: [],
+                createdBy: auth.currentUser.uid, createdAt: new Date().toISOString()
             });
             toAdd.push(name);
         } catch (e) {
