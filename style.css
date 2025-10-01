@@ -42,16 +42,6 @@ h1 {
   font-weight: 600;
 }
 .btn:hover { opacity: 0.95; }
-
-/* Nuovo stile per il pulsante secondario (Export XLSX) */
-.secondary-btn {
-    background: #4CAF50; /* Green */
-    color: white;
-}
-.secondary-btn:hover {
-    background: #45a049;
-}
-
 .user-info {
   color: #fff;
   font-size: 14px;
@@ -133,14 +123,12 @@ h1 {
   gap: 16px;
   flex-wrap: wrap;
 }
-
 .student-forms {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 320px;
 }
-
 .student-history {
   flex: 1;
   min-width: 280px;
@@ -152,18 +140,29 @@ h1 {
   overflow: auto;
 }
 
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
+/* Responsività */
+@media (max-width: 720px) {
+  .student-details {
+    flex-direction: column;
+  }
+  .student-forms, .student-history {
     width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.45);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+  }
+}
+
+/* Modal - wrapper e centratura */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;      /* centra verticalmente */
+  justify-content: center;  /* centra orizzontalmente */
+  z-index: 1000;
+}
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
 }
 
 /* Card interna del modal */
@@ -192,4 +191,52 @@ h1 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+#orarioSettimanale {
+  margin-top: 24px;
+}
+
+.timetable {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(2,6,23,0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #0b5fff; /* bordo esterno della tabella */
+}
+
+.timetable th, .timetable td {
+  border: 1px solid #0b5fff; /* bordo interno delle celle */
+  padding: 10px;
+  text-align: center;
+}
+
+.timetable th {
+  background: #0b5fff;
+  color: #fff;
+}
+
+.timetable tbody tr:nth-child(even) {
+  background: #f5f7fb;
+}
+
+/* Aggiungi questa regola al tuo file style.css */
+#timetable td {
+    padding: 10px;
+    background-color: #f7f7f7;
+    border: 1px solid #ddd;
+}
+
+#timetable tr:nth-child(even) td {
+    background-color: #e9e9e9;
+}
+
+.timetable-select {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    box-sizing: border-box;
 }
