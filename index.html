@@ -20,6 +20,15 @@
         .delete-item-btn:hover {
             background-color: #d32f2f;
         }
+        /* Nuovo stile per l'input di ricerca */
+        #searchStudentInput {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 300px;
+            margin-bottom: 12px;
+        }
     </style>
 </head>
 <body>
@@ -42,6 +51,7 @@
     <main id="app">
         <section id="dashboard" class="screen">
             <h2>Seleziona un Liceo e una Classe</h2>
+            <input type="text" id="searchStudentInput" placeholder="Cerca studente nella classe..." style="display:none;">
             <div id="schoolsContainer" class="grid"></div>
             <div class="timetable-control">
                 <button id="showTimetableBtn" class="btn">Orario Settimanale</button>
@@ -52,7 +62,8 @@
         <section id="classView" class="screen" style="display:none;">
             <div class="class-header">
                 <h2 id="classTitle"></h2>
-                <div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="exportXLSXBtn" class="btn secondary-btn">Esporta XLSX</button>
                     <button id="addStudentBtn" class="btn">Aggiungi alunno</button>
                 </div>
             </div>
@@ -67,7 +78,7 @@
             </div>
             <table id="studentsTable" class="striped">
                 <thead>
-                    <tr><th>#</th><th>Nome</th><th>Voti</th><th>Assenze</th><th>Azioni</th></tr>
+                    <tr><th>#</th><th>Nome</th><th>Voti</th><th>Annotazioni</th><th>Azioni</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -103,11 +114,8 @@
                 <label class="file-label">File .xlsx
                     <input id="xlsxInput" type="file" accept=".xls,.xlsx" />
                 </label>
-
                 <select id="sheetSelect" style="display:none;"></select>
-
-                <label>
-                    Classe destinazione:
+                <label> Classe destinazione:
                     <select id="importClassSelect">
                         <option value="scientifico-1">Scientifico I</option>
                         <option value="scientifico-2">Scientifico II</option>
@@ -121,50 +129,39 @@
                         <option value="linguistico-5">Linguistico V</option>
                     </select>
                 </label>
-
-                <label><input type="checkbox" id="hasHeader" checked /> Prima riga intestazione</label>
-                <label><input type="checkbox" id="tryDedupe" checked /> Prova deduplica (match esatto)</label>
-
+                <label><input type="checkbox" id="hasHeader" checked> Salta riga d'intestazione</label>
+                <label><input type="checkbox" id="tryDedupe" checked> Non importare duplicati (solo nome)</label>
                 <button id="previewBtn" class="btn" style="display:none;">Anteprima</button>
-                <button id="doImportBtn" class="btn" style="display:none;">Importa</button>
+                <button id="doImportBtn" class="btn" style="display:none;">Importa in classe</button>
             </div>
-
-            <div id="previewArea" style="display:none;">
-                <h3>Anteprima (prime righe)</h3>
+            <div id="previewArea" style="margin-top: 15px; display:none;">
+                <h4>Anteprima Dati:</h4>
                 <pre id="previewContent"></pre>
             </div>
-
-            <p class="small-note">Suggerimento: salva il file come .xlsx e assicurati che i nomi siano nella prima colonna. Se hai intestazione, attiva "Prima riga intestazione".</p>
         </section>
+
     </main>
 
-    <div id="studentModal" class="modal" style="display:none;">
-        <div class="modal-overlay" id="modalOverlay"></div>
-        <div class="modal-card" role="dialog" aria-modal="true">
-            <header class="modal-header">
-                <h2 id="studentName">Scheda studente</h2>
-                <button id="closeModalBtn" class="btn">Chiudi</button>
-            </header>
-            <div id="studentSummary" class="student-summary">
-                <div>Totale voti: <span id="summaryGrades">0</span></div>
-                <div>Totale assenze: <span id="summaryAbsences">0</span></div>
-                <div>Annotazioni: <span id="summaryNotes">0</span></div>
+    <div id="studentModal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="studentName"></h2>
+                <button id="closeModalBtn" class="btn close-btn">X</button>
             </div>
+
+            <div class="student-summary">
+                <p>Totale voti: <span id="gradesCount"></span></p>
+                <p>Totale annotazioni: <span id="notesCount"></span></p>
+            </div>
+
             <div class="student-details">
                 <div class="student-forms">
                     <form id="gradeForm" class="mini-form">
                         <h3>Aggiungi voto</h3>
-                        <label>Materia <input name="subject" required /></label>
                         <label>Voto <input name="value" type="number" min="0" max="10" step="0.25" required /></label>
+                        <label>Descrizione <input name="description" type="text" placeholder="es. Prova orale storia" /></label>
                         <label>Data <input name="date" type="date" /></label>
                         <button type="submit" class="btn">Salva voto</button>
-                    </form>
-
-                    <form id="absenceForm" class="mini-form">
-                        <h3>Aggiungi assenza</h3>
-                        <label>Data <input name="date" type="date" required /></label>
-                        <label>Motivo <input name="reason" /></label>
-                        <button type="submit" class="btn">Salva assenza</button>
                     </form>
 
                     <form id="noteForm" class="mini-form">
@@ -176,8 +173,6 @@
                 <div class="student-history">
                     <h3>Storico voti</h3>
                     <ul id="gradesList"></ul>
-                    <h3>Storico assenze</h3>
-                    <ul id="absencesList"></ul>
                     <h3>Annotazioni</h3>
                     <ul id="notesList"></ul>
                 </div>
