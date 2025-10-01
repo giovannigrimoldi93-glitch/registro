@@ -28,28 +28,47 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 // ----------------- Riferimenti UI -----------------
-const schoolsContainer = document.getElementById('schoolsContainer');
-const dashboard = document.getElementById('dashboard');
-const classView = document.getElementById('classView');
-const importSection = document.getElementById('importSection');
-const timetableSection = document.getElementById('timetableSection');
 
+// Header Buttons
 const homeBtn = document.getElementById('homeBtn');
 const importBtnHeader = document.getElementById('importBtnHeader');
 const backBtn = document.getElementById('backBtn');
-
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userInfo = document.getElementById('userInfo');
 
-// Nuovi Riferimenti per Ricerca e Export
+// Main Screens
+const dashboard = document.getElementById('dashboard');
+const classView = document.getElementById('classView');
+const importSection = document.getElementById('importSection');
+const timetableSection = document.getElementById('timetableSection');
+const schoolsContainer = document.getElementById('schoolsContainer');
+
+// Dashboard & Class View
 const searchStudentInput = document.getElementById('searchStudentInput');
 const studentsTable = document.getElementById('studentsTable');
-const studentsTableBody = studentsTable.querySelector("tbody");
+const studentsTableBody = studentsTable ? studentsTable.querySelector("tbody") : null;
 const classTitle = document.getElementById('classTitle');
 const addStudentBtn = document.getElementById('addStudentBtn');
 const exportXLSXBtn = document.getElementById('exportXLSXBtn');
 
+// Modal
+const studentModal = document.getElementById('studentModal');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const studentNameEl = document.getElementById('studentName');
+const gradesList = document.getElementById('gradesList');
+const notesList = document.getElementById('notesList');
+const gradeForm = document.getElementById('gradeForm');
+const noteForm = document.getElementById('noteForm');
+
+// Appunti di Classe
+const toggleNotesBtn = document.getElementById('toggleNotesBtn');
+const notesSection = document.getElementById('notesSection');
+const classNotesTextarea = document.getElementById('classNotesTextarea');
+const saveNotesBtn = document.getElementById('saveNotesBtn');
+const notesStatus = document.getElementById('notesStatus');
+
+// Import
 const xlsxInput = document.getElementById('xlsxInput');
 const sheetSelect = document.getElementById('sheetSelect');
 const previewBtn = document.getElementById('previewBtn');
@@ -60,34 +79,20 @@ const tryDedupeCheckbox = document.getElementById('tryDedupe');
 const previewArea = document.getElementById('previewArea');
 const previewContent = document.getElementById('previewContent');
 
-const studentModal = document.getElementById('studentModal');
-const modalOverlay = document.getElementById('modalOverlay');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const studentNameEl = document.getElementById('studentName');
-const gradesList = document.getElementById('gradesList');
-const notesList = document.getElementById('notesList');
-const gradeForm = document.getElementById('gradeForm');
-const noteForm = document.getElementById('noteForm');
-
+// Orario Settimanale
 const showTimetableBtn = document.getElementById('showTimetableBtn');
 const timetableTable = document.getElementById('timetable');
 const editTimetableBtn = document.getElementById('editTimetableBtn');
 const saveTimetableBtn = document.getElementById('saveTimetableBtn');
 
-// Riferimenti UI Appunti di Classe
-const toggleNotesBtn = document.getElementById('toggleNotesBtn');
-const notesSection = document.getElementById('notesSection');
-const classNotesTextarea = document.getElementById('classNotesTextarea');
-const saveNotesBtn = document.getElementById('saveNotesBtn');
-const notesStatus = document.getElementById('notesStatus');
-
-// ----------------- Stato -----------------
+// ----------------- Stato e Dati -----------------
 let currentSchool = null;
 let currentClasse = null;
 let currentClassQueryUnsub = null;
 let currentStudentDocUnsub = null;
 let currentStudentId = null;
-let currentStudentsList = []; // Array per la ricerca e l'esportazione
+let currentStudentsList = []; 
+let dataRows = []; // Dati della tabella in memoria
 
 const classesForTimetable = [
     { school: 'scientifico', classe: 1, label: '1 Scientifico' }, { school: 'scientifico', classe: 2, label: '2 Scientifico' },
@@ -99,6 +104,7 @@ const classesForTimetable = [
 ];
 
 // ----------------- Funzioni UI -----------------
+
 function renderDashboard() {
     dashboard.style.display = '';
     classView.style.display = 'none';
@@ -106,7 +112,6 @@ function renderDashboard() {
     timetableSection.style.display = 'none';
     hideModal();
 
-    // Mostra l'input di ricerca solo in dashboard
     searchStudentInput.style.display = '';
 
     schoolsContainer.innerHTML = '';
@@ -145,36 +150,33 @@ function openClass(school, classe) {
     classView.style.display = '';
     classTitle.textContent = `${(school[0].toUpperCase() + school.slice(1))} — Classe ${classe}`;
     
-    // Nascondi l'input di ricerca quando si entra in classe
     searchStudentInput.style.display = 'none';
-    searchStudentInput.value = ''; // Resetta il valore
+    searchStudentInput.value = '';
 
-    // Reset e caricamento appunti
     notesSection.style.display = 'none';
     classNotesTextarea.value = '';
     notesStatus.textContent = '';
     loadClassNotes();
 
     const studentsCol = collection(db, 'students');
-    // Filtriamo solo gli studenti non 'deleted' (soft delete)
     const q = query(studentsCol, where('school', '==', school), where('classe', '==', classe), where('deleted', '!=', true));
     currentClassQueryUnsub = onSnapshot(q, snap => {
         const docs = [];
         snap.forEach(d => {
             docs.push({ id: d.id, ...d.data() });
         });
-        currentStudentsList = docs; // Aggiorna lista globale per export/ricerca
+        currentStudentsList = docs; 
         renderStudentsTable(docs);
     }, err => console.error('snapshot error', err));
 }
 
 function renderStudentsTable(students) {
+    if (!studentsTableBody) return; // Controllo di sicurezza
     studentsTableBody.innerHTML = '';
     students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     students.forEach((s, index) => {
         const tr = document.createElement('tr');
-        // Aggiungo un data-attributo per la ricerca
         tr.setAttribute('data-name', s.name.toLowerCase()); 
         tr.innerHTML = `
             <td>${index + 1}</td>
@@ -185,7 +187,6 @@ function renderStudentsTable(students) {
         `;
         tr.querySelector('.student-name-btn').addEventListener('click', () => openStudentModal(s.id));
         
-        // Soft Delete (Archiviazione)
         tr.querySelector('.delete-student-btn').addEventListener('click', async () => {
             if (!confirm(`Archiviare ${s.name}? Lo studente non sarà più visibile ma i suoi dati saranno conservati.`)) return;
             if (!auth.currentUser) return alert('Devi essere autenticato per archiviare.');
@@ -204,22 +205,21 @@ function renderStudentsTable(students) {
 }
 
 // Funzione di ricerca rapida (filtra solo la tabella renderizzata)
-searchStudentInput.addEventListener('input', () => {
-    const filter = searchStudentInput.value.toLowerCase();
-    const rows = studentsTableBody.querySelectorAll('tr');
+if (searchStudentInput && studentsTableBody) {
+    searchStudentInput.addEventListener('input', () => {
+        const filter = searchStudentInput.value.toLowerCase();
+        const rows = studentsTableBody.querySelectorAll('tr');
 
-    rows.forEach(row => {
-        const name = row.getAttribute('data-name');
-        if (name && name.includes(filter)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            if (name && name.includes(filter)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
     });
-});
-
-// Funzione di esportazione XLSX
-exportXLSXBtn.addEventListener('click', exportXLSXClass);
+}
 
 function exportXLSXClass() {
     if (typeof XLSX === 'undefined') return alert("Libreria XLSX non caricata.");
@@ -228,7 +228,6 @@ function exportXLSXClass() {
     }
 
     const studentsData = currentStudentsList.map(s => {
-        // Filtriamo e formattiamo solo voti/note non archiviati
         const grades = (s.grades || []).filter(g => !g.deleted).map(g => 
             `${g.value} (${g.description ? g.description + ', ' : ''}${g.date ? new Date(g.date).toLocaleDateString() : 'N/D'})`
         ).join('; ');
@@ -253,7 +252,7 @@ function exportXLSXClass() {
 }
 
 
-// ----------- Funzioni per gli appunti di classe (invariato) -----------
+// ----------- Funzioni per gli appunti di classe -----------
 async function loadClassNotes() {
     if (!currentSchool || !currentClasse) return;
     const classId = `${currentSchool}-${currentClasse}`;
@@ -274,7 +273,188 @@ async function loadClassNotes() {
     }
 }
 
-saveNotesBtn.addEventListener('click', async () => {
+// ----------------- Funzioni Modale Studente -----------------
+
+function showModal() {
+    if(studentModal) studentModal.style.display = 'flex';
+    if (window.location.hash) {
+        history.replaceState(null, null, ' ');
+    }
+}
+
+function hideModal() {
+    if(studentModal) studentModal.style.display = 'none';
+    if (currentStudentDocUnsub) currentStudentDocUnsub();
+    currentStudentId = null;
+}
+
+async function openStudentModal(studentId) {
+    if (currentStudentDocUnsub) currentStudentDocUnsub();
+
+    currentStudentId = studentId;
+    
+    const studentDocRef = doc(db, 'students', studentId);
+    currentStudentDocUnsub = onSnapshot(studentDocRef, (docSnap) => {
+        if (!docSnap.exists()) {
+            hideModal();
+            return;
+        }
+        const student = docSnap.data();
+        if(studentNameEl) studentNameEl.textContent = student.name;
+        
+        const gradesCountEl = document.getElementById('gradesCount');
+        const notesCountEl = document.getElementById('notesCount');
+        
+        if(gradesCountEl) gradesCountEl.textContent = (student.grades || []).filter(g => !g.deleted).length;
+        if(notesCountEl) notesCountEl.textContent = (student.notes || []).filter(n => !n.deleted).length;
+
+        renderStudentHistory(student);
+        showModal();
+    }, (error) => {
+        console.error("Error fetching student data: ", error);
+        alert('Errore nel caricamento dati studente.');
+    });
+}
+
+
+function renderStudentHistory(student) {
+    if(!gradesList || !notesList) return;
+    
+    const grades = (student.grades || []).filter(g => !g.deleted).sort((a, b) => (new Date(b.date) - new Date(a.date)));
+    const notes = (student.notes || []).filter(n => !n.deleted).sort((a, b) => (new Date(b.createdAt) - new Date(a.createdAt)));
+
+    gradesList.innerHTML = '';
+    grades.forEach((g, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `${g.value} (${new Date(g.date).toLocaleDateString()})${g.description ? `: ${g.description}` : ''} <button class="delete-item-btn" data-type="grades" data-index="${index}">Cancella</button>`;
+        gradesList.appendChild(li);
+    });
+
+    notesList.innerHTML = '';
+    notes.forEach((n, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `${n.text} (${new Date(n.createdAt).toLocaleDateString()}) <button class="delete-item-btn" data-type="notes" data-index="${index}">Cancella</button>`;
+        notesList.appendChild(li);
+    });
+}
+
+
+// ----------------- Funzioni per la tabella orario -----------------
+const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
+const hours = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+function openTimetable() {
+    dashboard.style.display = 'none';
+    classView.style.display = 'none';
+    importSection.style.display = 'none';
+    timetableSection.style.display = '';
+    loadTimetable();
+}
+
+async function loadTimetable() {
+    if(!timetableTable) return;
+    timetableTable.querySelector('tbody').innerHTML = '';
+    const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
+    const snap = await getDoc(timetableDocRef);
+    let timetableData = snap.exists() ? snap.data().data : null;
+
+    hours.forEach((hour) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${hour}</td>` + dayMappings.map(day => {
+            const lesson = timetableData?.find(item => item.hour === hour)?.[day] || '';
+            return `<td>${lesson}</td>`;
+        }).join('');
+        timetableTable.querySelector('tbody').appendChild(tr);
+    });
+}
+
+// ----------------- Funzioni di Importazione Excel -----------------
+
+function loadSheetData(workbook) {
+    if(!previewBtn || !sheetSelect || !doImportBtn || !previewArea) return;
+
+    // Rimuove vecchi listener per evitare duplicati, necessario per {once: true}
+    previewBtn.replaceWith(previewBtn.cloneNode(true));
+    const newPreviewBtn = document.getElementById('previewBtn');
+
+    newPreviewBtn.addEventListener('click', () => {
+        const sheetName = sheetSelect.value;
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Uso XLSX.utils.sheet_to_json con { header: 1 } per avere un array di array
+        dataRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+        if (hasHeaderCheckbox && hasHeaderCheckbox.checked && dataRows.length > 0) {
+            dataRows.shift(); // Rimuove l'intestazione
+        }
+        
+        const previewText = dataRows.slice(0, 10).map(row => row[0]).filter(Boolean).join('\n');
+        previewContent.textContent = previewText || "Nessun dato da mostrare.";
+        previewArea.style.display = '';
+        doImportBtn.style.display = '';
+    });
+}
+
+
+// ----------------- Gestione Event Listeners -----------------
+// Bloccare tutti gli ascoltatori di eventi alla fine del file riduce il rischio
+// che un errore nelle dichiarazioni in alto impedisca l'inizializzazione dei pulsanti topbar.
+
+if (homeBtn) homeBtn.addEventListener('click', renderDashboard);
+if (backBtn) backBtn.addEventListener('click', renderDashboard);
+if (importBtnHeader) importBtnHeader.addEventListener('click', () => {
+    dashboard.style.display = 'none';
+    classView.style.display = 'none';
+    timetableSection.style.display = 'none';
+    importSection.style.display = '';
+});
+
+// Autenticazione
+if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+        signInWithPopup(auth, provider).catch(err => console.error(err));
+    });
+}
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        signOut(auth).catch(err => console.error(err));
+    });
+}
+onAuthStateChanged(auth, updateAuthState);
+
+function updateAuthState(user) {
+    if (user) {
+        userInfo.textContent = `Loggato come ${user.displayName || user.email}`;
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = '';
+        renderDashboard();
+    } else {
+        userInfo.textContent = 'Non autenticato';
+        loginBtn.style.display = '';
+        logoutBtn.style.display = 'none';
+        dashboard.style.display = 'none';
+        classView.style.display = 'none';
+        importSection.style.display = 'none';
+        timetableSection.style.display = 'none';
+        if (searchStudentInput) searchStudentInput.style.display = 'none';
+        // Non forzo l'alert all'avvio, l'utente sa che deve loggarsi
+    }
+}
+
+
+// Event Listeners aggiuntivi
+
+// Modal
+if (closeModalBtn) closeModalBtn.addEventListener('click', hideModal);
+if (studentModal) {
+    const modalOverlay = document.getElementById('studentModal');
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) hideModal();
+    });
+}
+
+// Appunti
+if (saveNotesBtn) saveNotesBtn.addEventListener('click', async () => {
     if (!auth.currentUser) return alert('Devi essere autenticato per salvare.');
     if (!currentSchool || !currentClasse) return;
 
@@ -296,86 +476,68 @@ saveNotesBtn.addEventListener('click', async () => {
         alert('Si è verificato un errore.');
     }
 });
-
-toggleNotesBtn.addEventListener('click', () => {
-    const isVisible = notesSection.style.display === '';
-    notesSection.style.display = isVisible ? 'none' : '';
-});
-
-// ----------------- Funzioni Modale Studente -----------------
-
-function showModal() {
-    studentModal.style.display = 'flex';
-    if (window.location.hash) {
-        history.replaceState(null, null, ' ');
-    }
+if (toggleNotesBtn && notesSection) {
+    toggleNotesBtn.addEventListener('click', () => {
+        const isVisible = notesSection.style.display === '';
+        notesSection.style.display = isVisible ? 'none' : '';
+    });
 }
 
-function hideModal() {
-    studentModal.style.display = 'none';
-    if (currentStudentDocUnsub) currentStudentDocUnsub();
-    currentStudentId = null;
-}
+// Modale: Voto e Nota
+if (gradeForm && currentStudentId) {
+    gradeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentStudentId || !auth.currentUser) return alert('Devi essere autenticato.');
 
-closeModalBtn.addEventListener('click', hideModal);
-modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) hideModal();
-});
+        const value = gradeForm.value.value;
+        const description = gradeForm.description.value;
+        const date = gradeForm.date.value || new Date().toISOString().split('T')[0];
 
-
-async function openStudentModal(studentId) {
-    if (currentStudentDocUnsub) currentStudentDocUnsub();
-
-    currentStudentId = studentId;
-    
-    // Ascolto in tempo reale sul singolo studente
-    const studentDocRef = doc(db, 'students', studentId);
-    currentStudentDocUnsub = onSnapshot(studentDocRef, (docSnap) => {
-        if (!docSnap.exists()) {
-            hideModal();
-            return;
+        try {
+            await updateDoc(doc(db, 'students', currentStudentId), {
+                grades: arrayUnion({ 
+                    value: Number(value), 
+                    description, 
+                    date, 
+                    createdAt: new Date().toISOString(),
+                    deleted: false
+                })
+            });
+            gradeForm.reset();
+        } catch (e) {
+            console.error("Errore salvataggio voto:", e);
+            alert('Errore salvataggio voto.');
         }
-        const student = docSnap.data();
-        studentNameEl.textContent = student.name;
-        
-        // Aggiorna riepilogo in modal
-        document.getElementById('gradesCount').textContent = (student.grades || []).filter(g => !g.deleted).length;
-        document.getElementById('notesCount').textContent = (student.notes || []).filter(n => !n.deleted).length;
-
-        renderStudentHistory(student);
-        showModal();
-    }, (error) => {
-        console.error("Error fetching student data: ", error);
-        alert('Errore nel caricamento dati studente.');
     });
 }
 
+if (noteForm && currentStudentId) {
+    noteForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentStudentId || !auth.currentUser) return alert('Devi essere autenticato.');
 
-function renderStudentHistory(student) {
-    // Soft Delete: filtra gli elementi marcati come 'deleted'
-    const grades = (student.grades || []).filter(g => !g.deleted).sort((a, b) => (new Date(b.date) - new Date(a.date)));
-    const notes = (student.notes || []).filter(n => !n.deleted).sort((a, b) => (new Date(b.createdAt) - new Date(a.createdAt)));
+        const text = noteForm.text.value;
 
-    // Voti
-    gradesList.innerHTML = '';
-    grades.forEach((g, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `${g.value} (${new Date(g.date).toLocaleDateString()})${g.description ? `: ${g.description}` : ''} <button class="delete-item-btn" data-type="grades" data-index="${index}">Cancella</button>`;
-        gradesList.appendChild(li);
-    });
-
-    // Annotazioni
-    notesList.innerHTML = '';
-    notes.forEach((n, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `${n.text} (${new Date(n.createdAt).toLocaleDateString()}) <button class="delete-item-btn" data-type="notes" data-index="${index}">Cancella</button>`;
-        notesList.appendChild(li);
+        try {
+            await updateDoc(doc(db, 'students', currentStudentId), {
+                notes: arrayUnion({ 
+                    text, 
+                    createdAt: new Date().toISOString(),
+                    deleted: false
+                })
+            });
+            noteForm.reset();
+        } catch (e) {
+            console.error("Errore salvataggio nota:", e);
+            alert('Errore salvataggio nota.');
+        }
     });
 }
 
-// Funzione di soft delete per voti/note
+// Modale: Soft Delete Voto/Nota
 document.addEventListener('click', async (e) => {
     if (e.target.classList.contains('delete-item-btn')) {
+        // ... (Logica Soft Delete) ...
         const type = e.target.getAttribute('data-type');
         const index = parseInt(e.target.getAttribute('data-index'));
 
@@ -390,33 +552,27 @@ document.addEventListener('click', async (e) => {
 
             const studentData = studentSnap.data();
             
-            // Ricreiamo la lista filtrata per trovare l'oggetto corretto da marcare
             const filteredList = (studentData[type] || []).filter(item => !item.deleted).sort((a, b) => {
                 const dateA = new Date(type === 'grades' ? a.date : a.createdAt);
                 const dateB = new Date(type === 'grades' ? b.date : b.createdAt);
-                return dateB - dateA; // Ordine decrescente (dal più recente)
+                return dateB - dateA; 
             });
             
             const itemToMark = filteredList[index];
             if (!itemToMark) return alert('Elemento non trovato.');
 
-            // Troviamo l'indice dell'elemento originale (non filtrato) e lo marchiamo come 'deleted'
             const originalIndex = studentData[type].findIndex(item => {
-                // Confronto per trovare l'oggetto esatto
                 if (type === 'grades') {
                     return item.value === itemToMark.value && item.date === itemToMark.date && item.description === itemToMark.description;
-                } else { // notes
+                } else { 
                     return item.text === itemToMark.text && item.createdAt === itemToMark.createdAt;
                 }
             });
 
             if (originalIndex > -1) {
-                // Creiamo una copia della lista per modificarla
                 const updatedList = [...studentData[type]];
-                // Mark the item as deleted
                 updatedList[originalIndex] = { ...updatedList[originalIndex], deleted: true, deletedAt: new Date().toISOString() };
 
-                // Aggiorniamo il documento con la nuova lista
                 const updateData = {};
                 updateData[type] = updatedList;
 
@@ -433,57 +589,10 @@ document.addEventListener('click', async (e) => {
 });
 
 
-// Gestione aggiunta Voto (aggiornato per includere 'createdAt')
-gradeForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentStudentId || !auth.currentUser) return alert('Devi essere autenticato.');
+// Classe: Esporta e Aggiungi Studente
+if (exportXLSXBtn) exportXLSXBtn.addEventListener('click', exportXLSXClass);
 
-    const value = gradeForm.value.value;
-    const description = gradeForm.description.value;
-    const date = gradeForm.date.value || new Date().toISOString().split('T')[0];
-
-    try {
-        await updateDoc(doc(db, 'students', currentStudentId), {
-            grades: arrayUnion({ 
-                value: Number(value), 
-                description, 
-                date, 
-                createdAt: new Date().toISOString(),
-                deleted: false // Aggiungo flag di soft-delete
-            })
-        });
-        gradeForm.reset();
-    } catch (e) {
-        console.error("Errore salvataggio voto:", e);
-        alert('Errore salvataggio voto.');
-    }
-});
-
-// Gestione aggiunta Nota (aggiornato per includere 'deleted')
-noteForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentStudentId || !auth.currentUser) return alert('Devi essere autenticato.');
-
-    const text = noteForm.text.value;
-
-    try {
-        await updateDoc(doc(db, 'students', currentStudentId), {
-            notes: arrayUnion({ 
-                text, 
-                createdAt: new Date().toISOString(),
-                deleted: false // Aggiungo flag di soft-delete
-            })
-        });
-        noteForm.reset();
-    } catch (e) {
-        console.error("Errore salvataggio nota:", e);
-        alert('Errore salvataggio nota.');
-    }
-});
-
-
-// Aggiungi studente (rimosso 'absences' e aggiunto 'deleted')
-addStudentBtn.addEventListener('click', async () => {
+if (addStudentBtn) addStudentBtn.addEventListener('click', async () => {
     if (!auth.currentUser || !currentSchool || !currentClasse) return alert('Devi essere autenticato e in una classe.');
 
     const studentName = prompt('Inserisci il nome e cognome del nuovo studente:');
@@ -506,211 +615,114 @@ addStudentBtn.addEventListener('click', async () => {
     }
 });
 
-// ----------------- Funzioni per la tabella orario (invariato) -----------------
-const dayMappings = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
-const hours = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+// Orario Settimanale
+if (showTimetableBtn) showTimetableBtn.addEventListener('click', openTimetable);
 
-function openTimetable() {
-    dashboard.style.display = 'none';
-    classView.style.display = 'none';
-    importSection.style.display = 'none';
-    timetableSection.style.display = '';
-    loadTimetable();
-}
-
-async function loadTimetable() {
-    timetableTable.querySelector('tbody').innerHTML = '';
-    const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
-    const snap = await getDoc(timetableDocRef);
-    let timetableData = snap.exists() ? snap.data().data : null;
-
-    hours.forEach((hour) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${hour}</td>` + dayMappings.map(day => {
-            const lesson = timetableData?.find(item => item.hour === hour)?.[day] || '';
-            return `<td>${lesson}</td>`;
-        }).join('');
-        timetableTable.querySelector('tbody').appendChild(tr);
-    });
-}
-
-showTimetableBtn.addEventListener('click', openTimetable);
-
-editTimetableBtn.addEventListener('click', () => {
-    editTimetableBtn.style.display = 'none';
-    saveTimetableBtn.style.display = '';
-    timetableTable.querySelectorAll('tbody td:not(:first-child)').forEach(cell => {
-        const currentContent = cell.textContent.trim();
-        cell.innerHTML = `<select class="timetable-select"> <option value=""></option> <option value="Disponibile">Disponibile</option> ${classesForTimetable.map(c => `<option value="${c.label}" ${currentContent === c.label ? 'selected' : ''}>${c.label}</option>`).join('')} </select>`;
-    });
-});
-
-saveTimetableBtn.addEventListener('click', async () => {
-    if (!auth.currentUser) return alert('Devi essere autenticato per salvare l\'orario.');
-    saveTimetableBtn.style.display = 'none';
-    editTimetableBtn.style.display = '';
-    const timetableData = Array.from(timetableTable.querySelectorAll('tbody tr')).map(row => {
-        const hour = row.cells[0].textContent;
-        const rowData = { hour };
-        Array.from(row.cells).slice(1).forEach((cell, index) => {
-            const select = cell.querySelector('select');
-            const lesson = select ? select.value : cell.textContent.trim();
-            rowData[dayMappings[index]] = lesson;
-            cell.textContent = lesson;
+if (editTimetableBtn && saveTimetableBtn && timetableTable) {
+    editTimetableBtn.addEventListener('click', () => {
+        editTimetableBtn.style.display = 'none';
+        saveTimetableBtn.style.display = '';
+        timetableTable.querySelectorAll('tbody td:not(:first-child)').forEach(cell => {
+            const currentContent = cell.textContent.trim();
+            cell.innerHTML = `<select class="timetable-select"> <option value=""></option> <option value="Disponibile">Disponibile</option> ${classesForTimetable.map(c => `<option value="${c.label}" ${currentContent === c.label ? 'selected' : ''}>${c.label}</option>`).join('')} </select>`;
         });
-        return rowData;
     });
-    try {
-        const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
-        await setDoc(timetableDocRef, { data: timetableData, lastUpdatedBy: auth.currentUser.uid, lastUpdatedAt: new Date().toISOString() });
-        alert('Orario salvato con successo!');
-    } catch (e) {
-        console.error("Errore salvataggio orario:", e);
-        alert('Si è verificato un errore.');
-    }
-});
 
-
-// ----------------- Importazione XLSX (rimosso 'absences' dall'oggetto studente) -----------------
-
-// Funzioni importazione XLSX (manca codice precedente, ma assumo l'esistenza di loadSheetData e l'evento change su xlsxInput)
-let dataRows = []; // Dati della tabella in memoria
-
-// Gestione della selezione file e caricamento (qui ho bisogno della funzione di parsing)
-// Ho bisogno del contenuto originale per sapere cosa c'era qui.
-// Inserisco un blocco di codice per l'importazione che gestisca la logica `doImportBtn`.
-
-doImportBtn.addEventListener('click', async () => {
-    if (!auth.currentUser) return alert('Devi essere autenticato per importare.');
-    const target = importClassSelect.value.split('-');
-    const school = target[0];
-    const classe = Number(target[1]);
-    const tryDedupe = tryDedupeCheckbox.checked;
-
-    if (!dataRows || dataRows.length === 0) return alert('Foglio vuoto');
-
-    let existingNames = new Set();
-    if (tryDedupe) {
-        const q = query(collection(db, 'students'), where('school', '==', school), where('classe', '==', classe));
-        const snap = await getDocs(q);
-        snap.forEach(doc => existingNames.add(doc.data().name));
-    }
-
-    const toAdd = [];
-    const skipped = [];
-
-    for (const r of dataRows) {
-        const name = String(r?.[0] || '').trim();
-        if (!name) continue;
-
-        if (tryDedupe && existingNames.has(name)) {
-            skipped.push({ name, reason: 'duplicato' });
-            continue;
-        }
-
-        try {
-            await addDoc(collection(db, 'students'), {
-                name, school, classe, grades: [], notes: [],
-                deleted: false, // Aggiunto flag di soft-delete
-                createdBy: auth.currentUser.uid, createdAt: new Date().toISOString()
+    saveTimetableBtn.addEventListener('click', async () => {
+        if (!auth.currentUser) return alert('Devi essere autenticato per salvare l\'orario.');
+        saveTimetableBtn.style.display = 'none';
+        editTimetableBtn.style.display = '';
+        const timetableData = Array.from(timetableTable.querySelectorAll('tbody tr')).map(row => {
+            const hour = row.cells[0].textContent;
+            const rowData = { hour };
+            Array.from(row.cells).slice(1).forEach((cell, index) => {
+                const select = cell.querySelector('select');
+                const lesson = select ? select.value : cell.textContent.trim();
+                rowData[dayMappings[index]] = lesson;
+                cell.textContent = lesson;
             });
-            toAdd.push(name);
+            return rowData;
+        });
+        try {
+            const timetableDocRef = doc(db, 'timetables', 'unique_timetable');
+            await setDoc(timetableDocRef, { data: timetableData, lastUpdatedBy: auth.currentUser.uid, lastUpdatedAt: new Date().toISOString() });
+            alert('Orario salvato con successo!');
         } catch (e) {
-            console.error('Import error for', name, e);
-            skipped.push({ name, reason: 'errore' });
+            console.error("Errore salvataggio orario:", e);
+            alert('Si è verificato un errore.');
         }
-    }
-
-    alert(`Import completato. Aggiunti: ${toAdd.length}. Saltati: ${skipped.length}.`);
-    xlsxInput.value = '';
-    sheetSelect.style.display = 'none';
-    doImportBtn.style.display = 'none';
-    previewArea.style.display = 'none';
-});
-
-// Il resto della logica di importazione (xlsxInput.addEventListener e loadSheetData) 
-// deve essere recuperato dal file originale (se necessario) o lasciato invariato.
-// Assumo che fosse già presente e funzionante.
-
-// ----------------- Gestione Autenticazione (invariato) -----------------
-
-function updateAuthState(user) {
-    if (user) {
-        userInfo.textContent = `Loggato come ${user.displayName || user.email}`;
-        loginBtn.style.display = 'none';
-        logoutBtn.style.display = '';
-        renderDashboard();
-    } else {
-        userInfo.textContent = 'Non autenticato';
-        loginBtn.style.display = '';
-        logoutBtn.style.display = 'none';
-        // Nascondi tutto se non loggato
-        dashboard.style.display = 'none';
-        classView.style.display = 'none';
-        importSection.style.display = 'none';
-        timetableSection.style.display = 'none';
-        searchStudentInput.style.display = 'none'; // Nascondi
-        alert('Esegui il login per accedere al registro.');
-    }
+    });
 }
 
-onAuthStateChanged(auth, updateAuthState);
-loginBtn.addEventListener('click', () => {
-    signInWithPopup(auth, provider).catch(err => console.error(err));
-});
-logoutBtn.addEventListener('click', () => {
-    signOut(auth).catch(err => console.error(err));
-});
+// Importazione XLSX
+if (xlsxInput) {
+    xlsxInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-// ----------------- Gestione Navigazione (invariato) -----------------
-homeBtn.addEventListener('click', renderDashboard);
-backBtn.addEventListener('click', renderDashboard);
-importBtnHeader.addEventListener('click', () => {
-    dashboard.style.display = 'none';
-    classView.style.display = 'none';
-    timetableSection.style.display = 'none';
-    importSection.style.display = '';
-});
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            sheetSelect.innerHTML = workbook.SheetNames.map(name => `<option value="${name}">${name}</option>`).join('');
+            sheetSelect.style.display = '';
+            previewBtn.style.display = '';
+            doImportBtn.style.display = 'none';
+            previewArea.style.display = 'none';
+            
+            loadSheetData(workbook);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
 
-// Funzioni per l'Importazione Excel (Assumo che ci siano qui le funzioni loadSheetData, xlsxInput.addEventListener, etc.)
-// Per coerenza con il file precedente, inserisco qui il codice di importazione gestito da `xlsxInput`
-xlsxInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+if (doImportBtn) {
+    doImportBtn.addEventListener('click', async () => {
+        if (!auth.currentUser) return alert('Devi essere autenticato per importare.');
+        const target = importClassSelect.value.split('-');
+        const school = target[0];
+        const classe = Number(target[1]);
+        const tryDedupe = tryDedupeCheckbox.checked;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        
-        sheetSelect.innerHTML = workbook.SheetNames.map(name => `<option value="${name}">${name}</option>`).join('');
-        sheetSelect.style.display = '';
-        previewBtn.style.display = '';
+        if (!dataRows || dataRows.length === 0) return alert('Foglio vuoto');
+
+        let existingNames = new Set();
+        if (tryDedupe) {
+            const q = query(collection(db, 'students'), where('school', '==', school), where('classe', '==', classe));
+            const snap = await getDocs(q);
+            snap.forEach(doc => existingNames.add(doc.data().name));
+        }
+
+        const toAdd = [];
+        const skipped = [];
+
+        for (const r of dataRows) {
+            const name = String(r?.[0] || '').trim();
+            if (!name) continue;
+
+            if (tryDedupe && existingNames.has(name)) {
+                skipped.push({ name, reason: 'duplicato' });
+                continue;
+            }
+
+            try {
+                await addDoc(collection(db, 'students'), {
+                    name, school, classe, grades: [], notes: [],
+                    deleted: false,
+                    createdBy: auth.currentUser.uid, createdAt: new Date().toISOString()
+                });
+                toAdd.push(name);
+            } catch (e) {
+                console.error('Import error for', name, e);
+                skipped.push({ name, reason: 'errore' });
+            }
+        }
+
+        alert(`Import completato. Aggiunti: ${toAdd.length}. Saltati: ${skipped.length}.`);
+        xlsxInput.value = '';
+        sheetSelect.style.display = 'none';
         doImportBtn.style.display = 'none';
         previewArea.style.display = 'none';
-        
-        // Aggiungo un listener per la preview/selezione foglio
-        loadSheetData(workbook);
-    };
-    reader.readAsArrayBuffer(file);
-});
-
-function loadSheetData(workbook) {
-    previewBtn.addEventListener('click', () => {
-        const sheetName = sheetSelect.value;
-        const worksheet = workbook.Sheets[sheetName];
-        dataRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-
-        if (hasHeaderCheckbox.checked && dataRows.length > 0) {
-            dataRows.shift(); // Rimuove l'intestazione
-        }
-        
-        const previewText = dataRows.slice(0, 10).map(row => row[0]).filter(Boolean).join('\n');
-        previewContent.textContent = previewText || "Nessun dato da mostrare.";
-        previewArea.style.display = '';
-        doImportBtn.style.display = '';
-    }, { once: true }); // Rimuove l'handler dopo il primo click
+    });
 }
-
-// Chiamata iniziale
-onAuthStateChanged(auth, updateAuthState);
